@@ -1,0 +1,511 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.closeChannel = exports.markMessageAsRead = exports.getMessages = exports.sendMessage = exports.leaveChannel = exports.joinChannel = exports.getChannel = exports.getChannels = exports.createChannel = void 0;
+const mongoose_1 = __importDefault(require("mongoose"));
+const DiscussionChannel_1 = require("../models/DiscussionChannel");
+const Poll_1 = require("../models/Poll");
+const User_1 = require("../models/User");
+const firebaseService_1 = require("../services/firebaseService");
+// Initialize Firebase service
+const firebaseService = new firebaseService_1.FirebaseService();
+/**
+ * Create a new discussion channel
+ * @route POST /api/discussions
+ * @access Private
+ */
+const createChannel = async (req, res, next) => {
+    try {
+        const userId = req.user?.id;
+        if (!userId) {
+            return res.status(401).json({ success: false, error: 'Unauthorized' });
+        }
+        const { name, description, pollId, maxParticipants } = req.body;
+        // Validate required fields
+        if (!name || !pollId) {
+            return res.status(400).json({
+                success: false,
+                error: 'Name and poll ID are required'
+            });
+        }
+        // Check if poll exists
+        const poll = await Poll_1.Poll.findById(pollId);
+        if (!poll) {
+            return res.status(404).json({
+                success: false,
+                error: 'Poll not found'
+            });
+        }
+        // Create channel in MongoDB
+        const channel = await DiscussionChannel_1.DiscussionChannel.create({
+            name,
+            description,
+            poll: new mongoose_1.default.Types.ObjectId(pollId),
+            creator: new mongoose_1.default.Types.ObjectId(userId),
+            participants: [new mongoose_1.default.Types.ObjectId(userId)],
+            maxParticipants: maxParticipants || 50
+        });
+        // Create channel in Firebase if connected
+        if (firebaseService.isConnected()) {
+            // Get creator info
+            const creator = await User_1.User.findById(userId).select('username');
+            // Create in Firebase
+            await firebaseService.createChannel(channel._id?.toString() || channel.id, {
+                name,
+                description,
+                pollId,
+                createdAt: new Date().toISOString(),
+                creatorId: userId,
+                creatorName: creator?.username || 'Unknown',
+                participants: {
+                    [userId]: {
+                        joinedAt: new Date().toISOString(),
+                        username: creator?.username || 'Unknown'
+                    }
+                }
+            });
+        }
+        return res.status(201).json({
+            success: true,
+            data: channel
+        });
+    }
+    catch (error) {
+        if (error.name === 'ValidationError') {
+            const messages = Object.values(error.errors).map((err) => err.message);
+            return res.status(400).json({
+                success: false,
+                error: messages
+            });
+        }
+        next(error);
+    }
+};
+exports.createChannel = createChannel;
+/**
+ * Get all discussion channels
+ * @route GET /api/discussions
+ * @access Public
+ */
+const getChannels = async (req, res, next) => {
+    try {
+        const { pollId, active } = req.query;
+        let query = {};
+        // Filter by poll if provided
+        if (pollId) {
+            query.poll = new mongoose_1.default.Types.ObjectId(pollId);
+        }
+        // Filter by active status if provided
+        if (active !== undefined) {
+            query.isActive = active === 'true';
+        }
+        // Get channels
+        const channels = await DiscussionChannel_1.DiscussionChannel.find(query)
+            .populate('creator', 'username')
+            .populate('poll', 'title')
+            .sort({ lastActivity: -1 });
+        return res.status(200).json({
+            success: true,
+            count: channels.length,
+            data: channels
+        });
+    }
+    catch (error) {
+        next(error);
+    }
+};
+exports.getChannels = getChannels;
+/**
+ * Get a single discussion channel
+ * @route GET /api/discussions/:id
+ * @access Public
+ */
+const getChannel = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        // Validate ObjectId
+        if (!mongoose_1.default.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid channel ID'
+            });
+        }
+        // Get channel
+        const channel = await DiscussionChannel_1.DiscussionChannel.findById(id)
+            .populate('creator', 'username')
+            .populate('poll', 'title')
+            .populate('participants', 'username');
+        if (!channel) {
+            return res.status(404).json({
+                success: false,
+                error: 'Channel not found'
+            });
+        }
+        return res.status(200).json({
+            success: true,
+            data: channel
+        });
+    }
+    catch (error) {
+        next(error);
+    }
+};
+exports.getChannel = getChannel;
+/**
+ * Join a discussion channel
+ * @route POST /api/discussions/:id/join
+ * @access Private
+ */
+const joinChannel = async (req, res, next) => {
+    try {
+        const userId = req.user?.id;
+        if (!userId) {
+            return res.status(401).json({ success: false, error: 'Unauthorized' });
+        }
+        const { id } = req.params;
+        // Validate ObjectId
+        if (!mongoose_1.default.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid channel ID'
+            });
+        }
+        // Get channel
+        const channel = await DiscussionChannel_1.DiscussionChannel.findById(id);
+        if (!channel) {
+            return res.status(404).json({
+                success: false,
+                error: 'Channel not found'
+            });
+        }
+        // Check if channel is active
+        if (!channel.isActive) {
+            return res.status(400).json({
+                success: false,
+                error: 'Channel is not active'
+            });
+        }
+        try {
+            // Add user to participants
+            const added = await channel.addParticipant(new mongoose_1.default.Types.ObjectId(userId));
+            if (!added) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'User is already a participant'
+                });
+            }
+            // Add to Firebase if connected
+            if (firebaseService.isConnected()) {
+                // Get user info
+                const user = await User_1.User.findById(userId).select('username');
+                // Add to Firebase
+                await firebaseService.addParticipant(id, userId, {
+                    joinedAt: new Date().toISOString(),
+                    username: user?.username || 'Unknown'
+                });
+            }
+            return res.status(200).json({
+                success: true,
+                data: channel
+            });
+        }
+        catch (error) {
+            return res.status(400).json({
+                success: false,
+                error: error.message
+            });
+        }
+    }
+    catch (error) {
+        next(error);
+    }
+};
+exports.joinChannel = joinChannel;
+/**
+ * Leave a discussion channel
+ * @route POST /api/discussions/:id/leave
+ * @access Private
+ */
+const leaveChannel = async (req, res, next) => {
+    try {
+        const userId = req.user?.id;
+        if (!userId) {
+            return res.status(401).json({ success: false, error: 'Unauthorized' });
+        }
+        const { id } = req.params;
+        // Validate ObjectId
+        if (!mongoose_1.default.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid channel ID'
+            });
+        }
+        // Get channel
+        const channel = await DiscussionChannel_1.DiscussionChannel.findById(id);
+        if (!channel) {
+            return res.status(404).json({
+                success: false,
+                error: 'Channel not found'
+            });
+        }
+        // Remove user from participants
+        const removed = await channel.removeParticipant(new mongoose_1.default.Types.ObjectId(userId));
+        if (!removed) {
+            return res.status(400).json({
+                success: false,
+                error: 'User is not a participant'
+            });
+        }
+        // Remove from Firebase if connected
+        if (firebaseService.isConnected()) {
+            await firebaseService.removeParticipant(id, userId);
+        }
+        return res.status(200).json({
+            success: true,
+            data: channel
+        });
+    }
+    catch (error) {
+        next(error);
+    }
+};
+exports.leaveChannel = leaveChannel;
+/**
+ * Send a message to a discussion channel
+ * @route POST /api/discussions/:id/messages
+ * @access Private
+ */
+const sendMessage = async (req, res, next) => {
+    try {
+        const userId = req.user?.id;
+        if (!userId) {
+            return res.status(401).json({ success: false, error: 'Unauthorized' });
+        }
+        const { id } = req.params;
+        const { content } = req.body;
+        // Validate required fields
+        if (!content) {
+            return res.status(400).json({
+                success: false,
+                error: 'Message content is required'
+            });
+        }
+        // Validate ObjectId
+        if (!mongoose_1.default.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid channel ID'
+            });
+        }
+        // Get channel
+        const channel = await DiscussionChannel_1.DiscussionChannel.findById(id);
+        if (!channel) {
+            return res.status(404).json({
+                success: false,
+                error: 'Channel not found'
+            });
+        }
+        try {
+            // Add message to channel
+            const message = await channel.addMessage(new mongoose_1.default.Types.ObjectId(userId), content);
+            // Add to Firebase if connected
+            let firebaseMessageId = null;
+            if (firebaseService.isConnected()) {
+                // Get user info
+                const user = await User_1.User.findById(userId).select('username');
+                // Add to Firebase
+                firebaseMessageId = await firebaseService.addMessage(id, {
+                    content,
+                    senderId: userId,
+                    senderName: user?.username || 'Unknown',
+                    readBy: {
+                        [userId]: new Date().toISOString()
+                    }
+                });
+            }
+            return res.status(201).json({
+                success: true,
+                data: {
+                    ...message.toObject(),
+                    firebaseId: firebaseMessageId
+                }
+            });
+        }
+        catch (error) {
+            return res.status(400).json({
+                success: false,
+                error: error.message
+            });
+        }
+    }
+    catch (error) {
+        next(error);
+    }
+};
+exports.sendMessage = sendMessage;
+/**
+ * Get messages from a discussion channel
+ * @route GET /api/discussions/:id/messages
+ * @access Private
+ */
+const getMessages = async (req, res, next) => {
+    try {
+        const userId = req.user?.id;
+        if (!userId) {
+            return res.status(401).json({ success: false, error: 'Unauthorized' });
+        }
+        const { id } = req.params;
+        const { limit = '50', startAt } = req.query;
+        // Validate ObjectId
+        if (!mongoose_1.default.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid channel ID'
+            });
+        }
+        // Get channel
+        const channel = await DiscussionChannel_1.DiscussionChannel.findById(id);
+        if (!channel) {
+            return res.status(404).json({
+                success: false,
+                error: 'Channel not found'
+            });
+        }
+        // Check if user is a participant
+        const isParticipant = channel.participants.some((p) => p.equals(new mongoose_1.default.Types.ObjectId(userId)));
+        if (!isParticipant) {
+            return res.status(403).json({
+                success: false,
+                error: 'User is not a participant in this channel'
+            });
+        }
+        // Get messages from Firebase if connected (for real-time data)
+        if (firebaseService.isConnected()) {
+            const messages = await firebaseService.getMessages(id, parseInt(limit), startAt);
+            return res.status(200).json({
+                success: true,
+                count: messages.length,
+                data: messages
+            });
+        }
+        // Otherwise, get messages from MongoDB
+        // Sort messages by timestamp (newest first) and apply limit
+        const messages = channel.messages
+            .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
+            .slice(0, parseInt(limit));
+        return res.status(200).json({
+            success: true,
+            count: messages.length,
+            data: messages
+        });
+    }
+    catch (error) {
+        next(error);
+    }
+};
+exports.getMessages = getMessages;
+/**
+ * Mark a message as read
+ * @route POST /api/discussions/:id/messages/:messageId/read
+ * @access Private
+ */
+const markMessageAsRead = async (req, res, next) => {
+    try {
+        const userId = req.user?.id;
+        if (!userId) {
+            return res.status(401).json({ success: false, error: 'Unauthorized' });
+        }
+        const { id, messageId } = req.params;
+        // Validate ObjectIds
+        if (!mongoose_1.default.Types.ObjectId.isValid(id) || !mongoose_1.default.Types.ObjectId.isValid(messageId)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid channel or message ID'
+            });
+        }
+        // Get channel
+        const channel = await DiscussionChannel_1.DiscussionChannel.findById(id);
+        if (!channel) {
+            return res.status(404).json({
+                success: false,
+                error: 'Channel not found'
+            });
+        }
+        // Mark message as read
+        const marked = await channel.markMessageAsRead(new mongoose_1.default.Types.ObjectId(userId), new mongoose_1.default.Types.ObjectId(messageId));
+        if (!marked) {
+            return res.status(400).json({
+                success: false,
+                error: 'Failed to mark message as read'
+            });
+        }
+        // Mark in Firebase if connected
+        if (firebaseService.isConnected()) {
+            await firebaseService.markMessageAsRead(id, messageId, userId);
+        }
+        return res.status(200).json({
+            success: true,
+            data: { read: true }
+        });
+    }
+    catch (error) {
+        next(error);
+    }
+};
+exports.markMessageAsRead = markMessageAsRead;
+/**
+ * Close a discussion channel (deactivate)
+ * @route PUT /api/discussions/:id/close
+ * @access Private
+ */
+const closeChannel = async (req, res, next) => {
+    try {
+        const userId = req.user?.id;
+        if (!userId) {
+            return res.status(401).json({ success: false, error: 'Unauthorized' });
+        }
+        const { id } = req.params;
+        // Validate ObjectId
+        if (!mongoose_1.default.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid channel ID'
+            });
+        }
+        // Get channel
+        const channel = await DiscussionChannel_1.DiscussionChannel.findById(id);
+        if (!channel) {
+            return res.status(404).json({
+                success: false,
+                error: 'Channel not found'
+            });
+        }
+        // Check if user is the creator
+        if (!channel.creator.equals(new mongoose_1.default.Types.ObjectId(userId))) {
+            return res.status(403).json({
+                success: false,
+                error: 'Only the channel creator can close the channel'
+            });
+        }
+        // Deactivate channel
+        channel.isActive = false;
+        await channel.save();
+        // Update in Firebase if connected
+        if (firebaseService.isConnected()) {
+            await firebaseService.updateChannel(id, {
+                isActive: false,
+                closedAt: new Date().toISOString()
+            });
+        }
+        return res.status(200).json({
+            success: true,
+            data: channel
+        });
+    }
+    catch (error) {
+        next(error);
+    }
+};
+exports.closeChannel = closeChannel;

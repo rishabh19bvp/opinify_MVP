@@ -1,0 +1,22 @@
+{
+  "types": [
+    {"type": "feat", "section": "Features"},
+    {"type": "fix", "section": "Bug Fixes"},
+    {"type": "perf", "section": "Performance Improvements"},
+    {"type": "docs", "section": "Documentation"},
+    {"type": "style", "section": "Styles"},
+    {"type": "refactor", "section": "Code Refactoring"},
+    {"type": "test", "section": "Tests"},
+    {"type": "chore", "section": "Chores"},
+    {"type": "revert", "section": "Reverts"}
+  ],
+  "release": {
+    "branch": "main",
+    "prerelease": "beta",
+    "tagPrefix": "v"
+  },
+  "commit": {
+    "verify": true,
+    "sign": false
+  }
+}

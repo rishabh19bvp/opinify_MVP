@@ -1,0 +1,42 @@
+{
+  "name": "opinify-api",
+  "version": "1.0.0",
+  "description": "Backend API for Opinify social platform",
+  "main": "dist/server.js",
+  "scripts": {
+    "start": "node dist/server.js",
+    "dev": "dotenv -e .env -- nodemon src/server.ts",
+    "build": "tsc",
+    "test": "jest --config=jest.config.js",
+    "test:watch": "jest --watch",
+    "test:no-types": "TS_NODE_PROJECT=\"tsconfig.jest.json\" jest --no-cache"
+  },
+  "dependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/jest": "^29.5.11",
+    "@types/jsonwebtoken": "^9.0.5",
+    "@types/node": "^20.10.6",
+    "@types/supertest": "^6.0.0",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "firebase-admin": "^13.2.0",
+    "helmet": "^7.1.0",
+    "jest": "^29.7.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.0.3",
+    "newsapi": "^2.4.1",
+    "socket.io": "^4.7.2",
+    "supertest": "^6.3.3",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "dotenv": "^16.5.0",
+    "nodemon": "^3.1.9",
+    "ts-jest": "^29.3.1"
+  }
+}
