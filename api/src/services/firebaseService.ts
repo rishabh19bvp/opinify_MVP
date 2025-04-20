@@ -1,7 +1,6 @@
 import { initializeApp, cert, ServiceAccount } from 'firebase-admin/app';
 import { getDatabase } from 'firebase-admin/database';
 import { config } from '../config';
-import path from 'path';
 import fs from 'fs';
 
 // Initialize Firebase Admin SDK

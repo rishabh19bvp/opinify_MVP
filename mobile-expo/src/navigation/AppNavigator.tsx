@@ -6,7 +6,6 @@ import { useAuthStore } from '../store/authStore';
 import AuthNavigator from './AuthNavigator';
 import TabNavigator from './TabNavigator';
 import { colors } from '../utils/theme';
-import type { User } from 'firebase/auth';
 
 // Define the root stack parameter list
 export type RootStackParamList = {

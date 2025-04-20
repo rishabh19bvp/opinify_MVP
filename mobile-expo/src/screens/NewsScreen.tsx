@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { View, Text, StyleSheet, FlatList, ActivityIndicator, RefreshControl, Button, Image, TouchableOpacity, Linking } from 'react-native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { TabNavigatorParamList } from '../navigation/TabNavigator';
@@ -31,6 +32,8 @@ interface NewsResponse {
 interface NewsScreenProps extends BottomTabScreenProps<TabNavigatorParamList, 'News'> {}
 
 const NewsScreen: React.FC<NewsScreenProps> = () => {
+  // ...existing state declarations...
+
   const [news, setNews] = useState<NewsArticle[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -119,8 +122,14 @@ const NewsScreen: React.FC<NewsScreenProps> = () => {
 
   useEffect(() => {
     fetchNews(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [coordinates]);
+
+  // Always refresh news when this screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchNews(true);
+    }, [coordinates])
+  );
 
   const handleLoadMore = () => {
     if (hasMore && !loading) {
@@ -131,7 +140,23 @@ const NewsScreen: React.FC<NewsScreenProps> = () => {
   const handleRefresh = async () => {
     setRefreshing(true);
     await fetchNews(true);
+    setLoading(false);
     setRefreshing(false);
+    // Trigger backend to fetch and store new news for next refresh
+    fetch(`${Constants?.expoConfig?.extra?.API_BASE_URL || ''}/api/news/refresh`, {
+      method: 'POST',
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          const text = await response.text();
+          console.warn('News refresh failed. Status:', response.status, 'Body:', text);
+        } else {
+          console.log('News refresh triggered successfully.');
+        }
+      })
+      .catch((err) => {
+        console.warn('Failed to trigger news refresh:', err, JSON.stringify(err));
+      });
   };
 
   const renderNewsItem = ({ item }: { item: NewsArticle }) => (

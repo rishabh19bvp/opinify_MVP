@@ -153,9 +153,13 @@ const discussionsApi = {
   
   // Subscribe to real-time messages for a channel
   subscribeToMessages: (channelId: string, callback: (messages: Message[]) => void) => {
-    const messagesRef = firebase.database().ref(`channels/${channelId}/messages`);
+    // Ensure firebase is properly initialized and has a database property
+    if (!('database' in firebase) || typeof firebase.database !== 'function') {
+      throw new Error('Firebase Realtime Database is not available.');
+    }
+    const messagesRef = (firebase as any).database().ref(`channels/${channelId}/messages`);
     
-    messagesRef.on('value', (snapshot) => {
+    messagesRef.on('value', (snapshot: any) => {
       const messages: Message[] = [];
       // Use a different approach to iterate through the snapshot
       const snapshotValue = snapshot.val() || {};

@@ -8,13 +8,11 @@ export const initApi = async (baseUrl: string): Promise<AxiosInstance> => {
     return apiInstance;
   }
 
-  // Remove /api from the end if it exists
-  const normalizedBaseUrl = baseUrl.replace(/\/api$/, '');
-
-  console.log('Creating API instance with base URL:', normalizedBaseUrl);
+  // Use baseUrl as-is to support /api prefix
+  console.log('Creating API instance with base URL:', baseUrl);
 
   apiInstance = axios.create({
-    baseURL: normalizedBaseUrl,
+    baseURL: baseUrl,
     timeout: 10000,
     headers: {
       'Content-Type': 'application/json',

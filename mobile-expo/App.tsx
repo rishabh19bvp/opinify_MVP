@@ -23,7 +23,7 @@ export default function App() {
     const initializeApp = async () => {
       try {
         // Load environment variables
-        const apiBaseUrl = 'http://192.168.1.58:63215';
+        const apiBaseUrl = 'http://192.168.1.21:63215';
         console.log('Initializing API with base URL:', apiBaseUrl);
         
         // Initialize API client

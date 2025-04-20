@@ -261,8 +261,11 @@ export async function apiRequest<T>(
   config: ApiRequestConfig
 ): Promise<ApiResponse<T>> {
   try {
+    if (!api) {
+      throw new Error('API client is not initialized');
+    }
     const response = await withRetry(
-      () => api.request<T>({
+      () => (api as any).request({
         ...config,
         headers: {
           ...config.headers,
@@ -271,9 +274,9 @@ export async function apiRequest<T>(
       }),
       { retryCount: 3, retryDelay: 1000 }
     );
-
+    const safeResponse = response as { data?: T };
     return {
-      data: response.data ?? null,
+      data: safeResponse.data ?? null,
       success: true,
       message: 'Success',
     };

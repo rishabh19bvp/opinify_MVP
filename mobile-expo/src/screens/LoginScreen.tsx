@@ -120,21 +120,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
           />
         </ResponsiveFeedback>
 
-        <ProgressiveDisclosure
-          title="Advanced Options"
-          expanded={showAdvancedOptions}
-          onToggle={() => setShowAdvancedOptions(!showAdvancedOptions)}
-        >
-          <Button
-            title="Test Firebase Connection"
-            onPress={handleTestFirebase}
-            type="secondary"
-            disabled={isLoading}
-          />
-          {testError && (
-            <Text style={styles.error}>{testError}</Text>
-          )}
-        </ProgressiveDisclosure>
+
         <View style={styles.buttonContainer}>
           <Button
             title="Register"

@@ -7,13 +7,20 @@ import { AddressInfo } from 'net';
 import { config } from './config';
 import newsRoutes from './routes/newsRoutes';
 import authRoutes from './routes/authRoutes';
+import pollRoutes from './routes/pollRoutes';
 import { NewsArticle } from './models/NewsArticle';
 
 const app = express();
 
 // Middleware
 app.use(cors({
-  origin: ['http://localhost:19000', 'http://192.168.1.64:19000', 'http://192.168.1.64:19001'],
+  origin: [
+    'http://localhost:19000',
+    'http://192.168.1.21:19000',
+    'http://192.168.1.21:19001',
+    'exp://192.168.1.21:19000',
+    'exp://192.168.1.21:19001'
+  ],
   credentials: true
 }));
 app.use(helmet());
@@ -96,6 +103,7 @@ const connectDB = async () => {
 // Public routes
 app.use('/api/news', newsRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/polls', pollRoutes);
 
 // Protected routes
 // Add any protected routes here with the authenticate middleware
@@ -109,8 +117,8 @@ connectDB().then(() => {
     console.log(`Server running on port ${address.port}`);
     console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`MongoDB URI: ${config.database.uri}`);
-    console.log(`Listening on all interfaces: http://localhost:${address.port}`);
-    console.log(`API endpoints available at: http://localhost:${address.port}/api`);
+    console.log(`Listening on all interfaces: http://${address.address}:${address.port}`);
+    console.log(`API endpoints available at: http://${address.address}:${address.port}/api`);
   });
 
   // Add error handling for server
@@ -153,5 +161,3 @@ app.use((err: Error, _req: express.Request, res: express.Response, next: express
     error: 'Internal server error'
   });
 });
-
-

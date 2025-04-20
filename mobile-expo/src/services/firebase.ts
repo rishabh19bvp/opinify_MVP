@@ -13,6 +13,13 @@ export const signInWithGoogle = async () => { throw new Error('Firebase auth is 
 export const startPhoneVerification = async () => { throw new Error('Firebase auth is no longer used'); };
 export const confirmPhoneVerification = async () => { throw new Error('Firebase auth is no longer used'); };
 export const onAuthStateChanged = () => { throw new Error('Firebase auth is no longer used'); };
+export const signInAnonymouslyForTesting = async () => {
+  return {
+    success: false,
+    message: null,
+    error: 'Firebase auth is no longer used',
+  };
+};
 
 // Dummy auth object
 const auth = {};

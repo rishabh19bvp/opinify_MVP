@@ -11,13 +11,16 @@ import { RootStackParamList } from './AppNavigator';
 // Import screens
 import PollsScreen from '../screens/PollsScreen';
 import NewsScreen from '../screens/NewsScreen';
+import AddPollScreen from '../screens/AddPollScreen';
 import DiscussionsScreen from '../screens/DiscussionsScreen';
 import ProfileScreen from '../screens/ProfileScreen';
+import CustomTabBar from './CustomTabBar';
 
 // Define the tab navigator parameter list
 export type TabNavigatorParamList = {
   Polls: undefined;
   News: undefined;
+  AddPoll: undefined;
   Discussions: undefined;
   Profile: undefined;
 };
@@ -42,6 +45,7 @@ const TabNavigator = () => {
   return (
     <Tab.Navigator
       initialRouteName="Polls"
+      tabBar={props => <CustomTabBar {...props} />}
       screenOptions={({ route }) => ({
 
         tabBarIcon: ({ focused, color, size }) => {
@@ -83,6 +87,17 @@ const TabNavigator = () => {
         name="News" 
         component={NewsScreen} 
         options={{ title: 'News' }}
+      />
+      <Tab.Screen
+        name="AddPoll"
+        component={AddPollScreen}
+        options={{
+          title: '',
+          tabBarLabel: '',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="add" size={size} color={color} />
+          ),
+        }}
       />
       <Tab.Screen 
         name="Discussions" 

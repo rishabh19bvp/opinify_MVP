@@ -19,6 +19,22 @@ import mongoose from 'mongoose';
 const newsService = new NewsService();
 
 /**
+ * Refresh news from external sources and store in DB
+ * @route POST /api/news/refresh
+ * @access Public (or protect if needed)
+ */
+export const refreshNews = async (req: Request, res: Response) => {
+  try {
+    console.log('[refreshNews] Triggered by:', req.ip, req.headers['user-agent']);
+    await newsService.getTopHeadlines(undefined, 'en', 20);
+    res.json({ success: true, message: 'News refreshed and stored.' });
+  } catch (error) {
+    console.error('[refreshNews] Error:', error);
+    res.status(500).json({ success: false, error: (error as Error).message, stack: (error as Error).stack });
+  }
+};
+
+/**
  * Get top headlines
  * @route GET /api/news/headlines
  * @access Public

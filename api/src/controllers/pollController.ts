@@ -55,19 +55,29 @@ export const createPoll = async (req: Request, res: Response, next: NextFunction
  * @route GET /api/polls
  * @access Public
  */
-export const getPolls = async (req: Request, res: Response, next: NextFunction) => {
+import { authenticate } from '../middleware/auth';
+
+export const getPolls = [authenticate, async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const userId = req.user?.id;
     const polls = await Poll.find().sort({ createdAt: -1 }).populate('creator', 'username');
-    
+    const pollsWithVoteStatus = polls.map(poll => {
+      const votesArr = poll.votes || [];
+      const hasVoted = votesArr.some(vote => vote.userId && vote.userId.toString() === userId);
+      return {
+        ...poll.toObject(),
+        hasVoted,
+      };
+    });
     return res.status(200).json({
       success: true,
       count: polls.length,
-      data: polls
+      data: pollsWithVoteStatus
     });
   } catch (error) {
     next(error);
   }
-};
+}];
 
 /**
  * Get a single poll by ID

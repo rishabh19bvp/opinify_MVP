@@ -59,7 +59,7 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navi
         loading={isLoading}
         disabled={!isValid || isLoading}
       />
-      
+      <View style={{ height: 20 }} />
       <Button
         title="Back to Login"
         onPress={() => navigation.navigate('Login')}
