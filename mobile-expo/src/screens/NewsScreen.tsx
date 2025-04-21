@@ -6,6 +6,7 @@ import { TabNavigatorParamList } from '../navigation/TabNavigator';
 import { useLocation } from '../hooks/useLocation';
 import { initApi } from '../services/api';
 import Constants from 'expo-constants';
+import { config } from '../config';
 
 interface NewsArticle {
   title: string;
@@ -142,21 +143,14 @@ const NewsScreen: React.FC<NewsScreenProps> = () => {
     await fetchNews(true);
     setLoading(false);
     setRefreshing(false);
-    // Trigger backend to fetch and store new news for next refresh
-    fetch(`${Constants?.expoConfig?.extra?.API_BASE_URL || ''}/api/news/refresh`, {
-      method: 'POST',
-    })
-      .then(async (response) => {
-        if (!response.ok) {
-          const text = await response.text();
-          console.warn('News refresh failed. Status:', response.status, 'Body:', text);
-        } else {
-          console.log('News refresh triggered successfully.');
-        }
-      })
-      .catch((err) => {
-        console.warn('Failed to trigger news refresh:', err, JSON.stringify(err));
-      });
+    try {
+      const apiBaseUrl = Constants.expoConfig?.extra?.API_BASE_URL || process.env.EXPO_PUBLIC_API_BASE_URL || config.api.baseUrl;
+      const api = await initApi(apiBaseUrl);
+      await api.post('/api/news/refresh');
+      console.log('News refresh triggered successfully.');
+    } catch (err) {
+      console.warn('Failed to trigger news refresh:', err);
+    }
   };
 
   const renderNewsItem = ({ item }: { item: NewsArticle }) => (

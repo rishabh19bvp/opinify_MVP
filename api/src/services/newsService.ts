@@ -2,6 +2,7 @@ import axios from 'axios';
 import { config } from '../config';
 import { NewsArticle, INewsArticle } from '../models/NewsArticle';
 import mongoose from 'mongoose';
+import { response } from 'express';
 
 // Define the NewsAPI.org response types
 interface NewsAPIArticle {
@@ -74,7 +75,8 @@ export class NewsService {
       throw new Error('NewsAPI.org API key is required');
     }
     this.baseUrl = 'https://newsapi.org/v2';
-    this.cacheTime = 60 * 60 * 1000; // 1 hour cache by default
+    // For testing: always fetch fresh news on every refresh
+    this.cacheTime = 0;
     this.lastFetch = null;
     this.isFetching = false;
   }
@@ -156,6 +158,10 @@ export class NewsService {
    */
   private async processAndSaveArticles(articles: NewsAPIArticle[]): Promise<INewsArticle[]> {
     const savedArticles: INewsArticle[] = [];
+    if (!articles || articles.length === 0) {
+      console.error('[processAndSaveArticles] No articles provided to process.');
+      return [];
+    }
     
     for (const article of articles) {
       try {
@@ -217,9 +223,9 @@ export class NewsService {
           throw error; // Re-throw to be caught by outer try-catch
         }
       } catch (error) {
-        console.error('[NewsService] Outer error saving article:', {
-          url: article.url,
-          source: article.source,
+        console.error('[processAndSaveArticles] Failed to process/save article:', {
+          articleTitle: article.title,
+          articleUrl: article.url,
           error: error instanceof Error ? {
             message: error.message,
             stack: error.stack,
@@ -231,6 +237,9 @@ export class NewsService {
         });
         // Continue with the next article
       }
+    }
+    if (savedArticles.length === 0) {
+      console.warn('[processAndSaveArticles] No articles were saved to the database. Check for validation errors or duplicate keys.');
     }
     console.log(`[NewsService] Finished processing articles. Successfully saved: ${savedArticles.length}`);
     return savedArticles;
@@ -247,10 +256,16 @@ export class NewsService {
         .limit(limit)
         .lean();
 
+      // ---
+      // NewsAPI.org fetch conditions:
+      //   - If there has never been a fetch (this.lastFetch is null)
+      //   - If the last fetch was more than cacheTime ms ago
+      //   - If there are not enough cached articles in the DB
+      // Otherwise, serve cached articles from MongoDB and do NOT make a NewsAPI.org request.
+      // ---
       const now = new Date();
       const shouldFetch = !this.lastFetch || 
-                        (now.getTime() - this.lastFetch.getTime() > this.cacheTime) || 
-                        cachedArticles.length < limit;
+                        (now.getTime() - this.lastFetch.getTime() > this.cacheTime);
 
       // Return cached articles immediately if they're fresh enough
       if (!shouldFetch) {
@@ -288,16 +303,61 @@ export class NewsService {
           language: lang
         };
 
-        // Make the API request
-        const response = await axios.get<NewsAPIResponse>(`${this.baseUrl}/top-headlines`, { params });
+        // Make the API request with detailed logging
+        try {
+          console.log('[NewsService] Attempting to fetch from NewsAPI.org:', {
+            url: `${this.baseUrl}/top-headlines`,
+            params: params,
+            apiKey: '***' // Don't log the actual API key
+          });
 
-        if (response.data.status !== 'ok') {
-          throw new Error(`NewsAPI.org error: ${response.data.status}`);
+          const response = await axios.get<NewsAPIResponse>(`${this.baseUrl}/top-headlines`, { 
+            params,
+            timeout: 10000 // 10 second timeout
+          });
+
+          console.log('[NewsService] NewsAPI.org response:', {
+            status: response.status,
+            totalResults: response.data.totalResults,
+            articlesCount: response.data.articles?.length
+          });
+
+          if (response.data.status !== 'ok') {
+            throw new Error(`NewsAPI.org error: ${response.data.status}`);
+          }
+
+          // Log the first article for debugging
+          if (response.data.articles && response.data.articles.length > 0) {
+            console.log('[NewsService] First article from NewsAPI.org:', {
+              title: response.data.articles[0].title,
+              source: response.data.articles[0].source.name,
+              publishedAt: response.data.articles[0].publishedAt
+            });
+          }
+
+          // Process and save articles
+          const articles = await this.processAndSaveArticles(response.data.articles);
+          console.log(`[NewsService] Successfully processed and saved ${articles.length} articles`);
+          
+          // Update last fetch time
+          this.lastFetch = now;
+
+          // Get fresh articles from database
+          const freshArticles = await NewsArticle.find()
+            .sort({ publishedAt: -1 })
+            .limit(limit)
+            .lean();
+
+          return freshArticles;
+        } catch (apiError: any) {
+          console.error('[NewsService] NewsAPI.org request failed:', {
+            error: apiError.message,
+            status: apiError.response?.status,
+            statusText: apiError.response?.statusText,
+            data: apiError.response?.data
+          });
+          throw apiError;
         }
-
-        // Process and save articles
-        const articles = await this.processAndSaveArticles(response.data.articles);
-        console.log(`[NewsService] Successfully processed and saved ${articles.length} articles`);
 
         // Update last fetch time
         this.lastFetch = now;

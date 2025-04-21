@@ -44,7 +44,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       set({ isLoading: true, error: null });
       // Initialize API with the correct base URL
-      const apiInstance = await initApi('http://192.168.1.21:63215');
+      const apiInstance = await initApi('http://192.168.29.53:63215');
       const response = await apiInstance.post('/api/auth/login', { email, password });
       
       const { token, user } = response.data;
@@ -76,7 +76,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       set({ isLoading: true, error: null });
       // Initialize API with the correct base URL
-      const apiInstance = await initApi('http://192.168.1.21:63215');
+      const apiInstance = await initApi('http://192.168.29.53:63215');
       const response = await apiInstance.post('/api/auth/register', { email, password, username });
       
       const { token, user } = response.data;
@@ -128,7 +128,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       set({ isLoading: true, error: null });
       // Initialize API with the correct base URL
-      const apiInstance = await initApi('http://192.168.1.21:63215');
+      const apiInstance = await initApi('http://192.168.29.53:63215');
       const response = await apiInstance.post('/api/auth/reset-password', { email });
       set({ isLoading: false, error: null });
     } catch (error: any) {
@@ -160,7 +160,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       // Verify the token with the backend
       try {
-        const apiInstance = await initApi('http://192.168.1.21:63215');
+        const apiInstance = await initApi('http://192.168.29.53:63215');
         const response = await apiInstance.get('/api/auth/me');
         if (response.data.success && response.data.user) {
           const authUser: AuthUser = {
