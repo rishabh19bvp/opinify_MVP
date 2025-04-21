@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, memo } from 'react';
+import React, { useEffect, useRef, useState, memo } from 'react';
 import { Alert } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { usePollStore } from '../store/pollStore';
@@ -11,7 +11,7 @@ import { useLocation } from '../hooks/useLocation';
 import { useAuthStore } from '../store/authStore';
 
 // Animation duration for poll bars
-const ANIMATION_DURATION = 800;
+const ANIMATION_DURATION = 1200;
 
 interface Poll {
   id: string;
@@ -45,6 +45,8 @@ const PollsScreen: React.FC<PollsScreenProps> = ({ navigation }) => {
     setVotedPolls,
   } = usePollStore();
 
+  const [votingPollId, setVotingPollId] = useState<string | null>(null);
+
   const [refreshing, setRefreshing] = React.useState(false);
   // Store the latest vote info for fetchPolls after animation
   const latestVoteRef = React.useRef<{ pollId: string; optionIndex: number } | null>(null);
@@ -76,6 +78,7 @@ const PollsScreen: React.FC<PollsScreenProps> = ({ navigation }) => {
   }, [locationReady, userCoordinates, fetchPolls]);
 
   const handleVote = React.useCallback(async (pollId: string, optionIndex: number) => {
+    setVotingPollId(pollId);
     optimisticVote(pollId, optionIndex);
     latestVoteRef.current = { pollId, optionIndex };
     try {
@@ -86,9 +89,11 @@ const PollsScreen: React.FC<PollsScreenProps> = ({ navigation }) => {
       await api.post(`/api/polls/${pollId}/vote`, { optionIndex });
       // final fetch to sync with server
       await fetchPolls(true, userCoordinates ?? undefined);
+      setVotingPollId(null);
     } catch (err: any) {
       console.error('[handleVote] Vote failed:', err);
       Alert.alert('Error', 'Failed to submit vote. Please try again.');
+      setVotingPollId(null);
     } finally {
       // nothing else; state updated via fetchPolls
     }
@@ -139,33 +144,35 @@ const PollsScreen: React.FC<PollsScreenProps> = ({ navigation }) => {
       const hasVoted = typeof item.hasVoted === 'boolean'
         ? item.hasVoted
         : votedPolls[item.id] !== undefined;
+      const isVoting = item.id === votingPollId;
 
       // animated values for bars
       const yesAnim = useRef(new Animated.Value(0)).current;
       const noAnim = useRef(new Animated.Value(0)).current;
-      const prevPct = useRef({ yes: 0, no: 0 });
-      const hasVotedRef = useRef(false);
 
       useEffect(() => {
-        if (hasVoted && !hasVotedRef.current) {
-          // first vote: reset bars then animate
+        if (!hasVoted) {
           yesAnim.setValue(0);
           noAnim.setValue(0);
-          Animated.parallel([
-            Animated.timing(yesAnim, { toValue: yesPct, duration: ANIMATION_DURATION, easing: Easing.inOut(Easing.ease), useNativeDriver: false }),
-            Animated.timing(noAnim, { toValue: noPct, duration: ANIMATION_DURATION, easing: Easing.inOut(Easing.ease), useNativeDriver: false }),
-          ]).start();
-          prevPct.current = { yes: yesPct, no: noPct };
-        } else if (hasVoted && hasVotedRef.current) {
-          // subsequent updates
-          Animated.parallel([
-            Animated.timing(yesAnim, { toValue: yesPct, duration: ANIMATION_DURATION, easing: Easing.inOut(Easing.ease), useNativeDriver: false }),
-            Animated.timing(noAnim, { toValue: noPct, duration: ANIMATION_DURATION, easing: Easing.inOut(Easing.ease), useNativeDriver: false }),
-          ]).start();
-          prevPct.current = { yes: yesPct, no: noPct };
+          return;
         }
-        hasVotedRef.current = hasVoted;
-      }, [hasVoted, yesPct, noPct]);
+
+        // Always animate smoothly
+        Animated.parallel([
+          Animated.timing(yesAnim, {
+            toValue: yesPct,
+            duration: ANIMATION_DURATION,
+            easing: Easing.bezier(0.4, 0, 0.2, 1), // Smooth sliding
+            useNativeDriver: false
+          }),
+          Animated.timing(noAnim, {
+            toValue: noPct,
+            duration: ANIMATION_DURATION,
+            easing: Easing.bezier(0.4, 0, 0.2, 1), // Smooth sliding
+            useNativeDriver: false
+          })
+        ]).start();
+      }, [hasVoted, isVoting, yesPct, noPct]);
 
       return (
         <View style={styles.card}>
@@ -237,7 +244,7 @@ const PollsScreen: React.FC<PollsScreenProps> = ({ navigation }) => {
         data={polls}
         renderItem={({ item }) => <PollCard item={item} />}
         keyExtractor={item => item.id}
-        extraData={polls}
+        extraData={[polls, votingPollId]}
         onRefresh={handleRefresh}
         refreshing={refreshing || loading}
         ListFooterComponent={loading ? <ActivityIndicator style={styles.loadingIndicator} /> : null}

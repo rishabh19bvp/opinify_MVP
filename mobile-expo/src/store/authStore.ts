@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AuthUser } from '../types/auth';
 import { initApi } from '../services/api';
+import Constants from 'expo-constants';
 
 interface AuthState {
   user: AuthUser | null;
@@ -160,7 +161,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       // Verify the token with the backend
       try {
-        const apiInstance = await initApi('http://192.168.29.53:63215');
+        const apiBaseUrl = Constants.expoConfig?.extra?.API_BASE_URL || 
+          process.env.EXPO_PUBLIC_API_BASE_URL || process.env.API_BASE_URL;
+        if (!apiBaseUrl) throw new Error('API base URL not configured');
+        const apiInstance = await initApi(apiBaseUrl);
+        apiInstance.defaults.headers.common['Authorization'] = `Bearer ${token}`;
         const response = await apiInstance.get('/api/auth/me');
         if (response.data.success && response.data.user) {
           const authUser: AuthUser = {
