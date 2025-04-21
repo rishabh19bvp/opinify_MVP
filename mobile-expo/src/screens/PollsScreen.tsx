@@ -1,14 +1,17 @@
-import React, { useEffect } from 'react';
+import React, { useState, useEffect, useRef, memo } from 'react';
 import { Alert } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { usePollStore } from '../store/pollStore';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity, Animated, Easing } from 'react-native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { TabNavigatorParamList } from '../navigation/TabNavigator';
 import { initApi } from '../services/api';
 import Constants from 'expo-constants';
 import { useLocation } from '../hooks/useLocation';
 import { useAuthStore } from '../store/authStore';
+
+// Animation duration for poll bars
+const ANIMATION_DURATION = 800;
 
 interface Poll {
   id: string;
@@ -29,14 +32,12 @@ interface Poll {
 
 type PollsScreenProps = BottomTabScreenProps<TabNavigatorParamList, 'Polls'>;
 
-import { Animated, Easing } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const PollsScreen: React.FC<PollsScreenProps> = ({ navigation }) => {
   const {
     polls,
     votedPolls,
-    votingPoll,
     optimisticVote,
     loading,
     error,
@@ -45,13 +46,11 @@ const PollsScreen: React.FC<PollsScreenProps> = ({ navigation }) => {
   } = usePollStore();
 
   const [refreshing, setRefreshing] = React.useState(false);
-  // Track which poll is animating due to optimistic update
-  const [optimisticAnimatingPollId, setOptimisticAnimatingPollId] = React.useState<string | null>(null);
-
+  // Store the latest vote info for fetchPolls after animation
+  const latestVoteRef = React.useRef<{ pollId: string; optionIndex: number } | null>(null);
 
   // Use location hook
   const { coordinates: userCoordinates, isReady: locationReady, error: locationError } = useLocation();
-
 
   // Load voted polls from AsyncStorage only if not already loaded
   useEffect(() => {
@@ -76,34 +75,24 @@ const PollsScreen: React.FC<PollsScreenProps> = ({ navigation }) => {
     }
   }, [locationReady, userCoordinates, fetchPolls]);
 
-  // Per-poll animation state
-  const [animatingPolls, setAnimatingPolls] = React.useState<{ [id: string]: boolean }>({});
-  // Store the latest vote info for fetchPolls after animation
-  const latestVoteRef = React.useRef<{ pollId: string; optionIndex: number } | null>(null);
-
-  // Memoized handleVote to avoid re-renders
   const handleVote = React.useCallback(async (pollId: string, optionIndex: number) => {
-    setAnimatingPolls(prev => ({ ...prev, [pollId]: true }));
     optimisticVote(pollId, optionIndex);
     latestVoteRef.current = { pollId, optionIndex };
     try {
-      // console.log(`[handleVote] Voting on pollId=${pollId}, optionIndex=${optionIndex}`);
       const apiBaseUrl = Constants.expoConfig?.extra?.API_BASE_URL || 
         process.env.EXPO_PUBLIC_API_BASE_URL || process.env.API_BASE_URL;
       if (!apiBaseUrl) throw new Error('API base URL not configured');
       const api = await initApi(apiBaseUrl);
       await api.post(`/api/polls/${pollId}/vote`, { optionIndex });
-      // Do NOT fetchPolls here; wait for animation end
+      // final fetch to sync with server
+      await fetchPolls(true, userCoordinates ?? undefined);
     } catch (err: any) {
       console.error('[handleVote] Vote failed:', err);
       Alert.alert('Error', 'Failed to submit vote. Please try again.');
-      // Optionally revert optimistic update if needed
     } finally {
-      usePollStore.getState().setVotingPoll(null);
+      // nothing else; state updated via fetchPolls
     }
-  }, [optimisticVote]);
-
-
+  }, [optimisticVote, fetchPolls, userCoordinates]);
 
   const { token } = useAuthStore();
 
@@ -141,93 +130,43 @@ const PollsScreen: React.FC<PollsScreenProps> = ({ navigation }) => {
     return R * c; // Distance in meters
   };
 
-  // PollResultBar: Animated bar for poll results
-  const PollResultBar: React.FC<{
-    optionText: string;
-    count: number;
-    totalVotes: number;
-    colorStyle: any;
-    shouldAnimate?: boolean;
-    onAnimationEnd?: () => void;
-  }> = ({ optionText, count, totalVotes, colorStyle, shouldAnimate, onAnimationEnd }) => {
-    // console.log(`[PollResultBar] Render: optionText=${optionText}, count=${count}, totalVotes=${totalVotes}, shouldAnimate=${shouldAnimate}`);
-    const anim = React.useRef(new Animated.Value(0)).current;
-    const prevPct = React.useRef(0);
-    const prevShouldAnimate = React.useRef(false);
-
-    useEffect(() => {
-      const pct = totalVotes > 0 ? count / totalVotes : 0;
-      if (shouldAnimate && !prevShouldAnimate.current) {
-        // console.log(`[PollResultBar] Animation START for ${optionText}, from ${prevPct.current} to ${pct}`);
-        anim.setValue(prevPct.current);
-        Animated.timing(anim, {
-          toValue: pct,
-          duration: 500,
-          easing: Easing.out(Easing.cubic),
-          useNativeDriver: false
-        }).start(({ finished }) => {
-          if (finished && onAnimationEnd) onAnimationEnd();
-          // console.log(`[PollResultBar] Animation END for ${optionText}`);
-        });
-        prevPct.current = pct;
-      } else if (!shouldAnimate) {
-        anim.setValue(pct);
-        prevPct.current = pct;
-      }
-      prevShouldAnimate.current = shouldAnimate || false;
-    }, [shouldAnimate, count, totalVotes]);
-    return (
-      <View style={styles.barRow}>
-        <Text style={styles.optionText}>{optionText}</Text>
-        <View style={styles.barBackground}>
-          <Animated.View
-            style={[
-              styles.barFill,
-              colorStyle,
-              {
-                width: anim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: ['0%', '100%']
-                })
-              }
-            ]}
-          />
-        </View>
-        <Text style={styles.voteCount}>{count}</Text>
-      </View>
-    );
-  };
-
-
-  // Helper for stable option style
-  const getOptionStyle = React.useCallback((isVoting: boolean) => {
-    return isVoting ? [styles.optionContainer, styles.votingOption] : [styles.optionContainer];
-  }, []);
-
-  const PollCard = React.memo(
-    ({ item, isAnimating }: { item: Poll; isAnimating: boolean }) => {
-      // Diagnostics: log poll render
-      // console.log(`[FlatList] Rendering poll card for id=${item.id}, isAnimating=${isAnimating}`);
-      // Reset animation after it runs
-      // Only call fetchPolls once after both bars finish animating
-      const hasFetchedRef = React.useRef(false);
-      const handleAnimationEnd = React.useCallback(() => {
-        if (isAnimating) {
-          setAnimatingPolls(prev => ({ ...prev, [item.id]: false }));
-          // Only fetch polls once after both bars finish animating
-          if (latestVoteRef.current && !hasFetchedRef.current) {
-            hasFetchedRef.current = true;
-            fetchPolls(true).finally(() => {
-              latestVoteRef.current = null;
-              hasFetchedRef.current = false;
-            });
-          }
-        }
-      }, [isAnimating, item.id, fetchPolls]);
+  const PollCard: React.FC<{ item: Poll }> = ({ item }) => {
+      const total = item.totalVotes || 1;
+      const yesPct = (item.options[0]?.count || 0) / total;
+      const noPct = (item.options[1]?.count || 0) / total;
       const distance = calculateDistance(item);
       const formattedDistance = formatDistance(distance);
-      const isVoting = votingPoll === item.id;
-      const hasVoted = typeof item.hasVoted === 'boolean' ? item.hasVoted : usePollStore.getState().votedPolls[item.id] !== undefined;
+      const hasVoted = typeof item.hasVoted === 'boolean'
+        ? item.hasVoted
+        : votedPolls[item.id] !== undefined;
+
+      // animated values for bars
+      const yesAnim = useRef(new Animated.Value(0)).current;
+      const noAnim = useRef(new Animated.Value(0)).current;
+      const prevPct = useRef({ yes: 0, no: 0 });
+      const hasVotedRef = useRef(false);
+
+      useEffect(() => {
+        if (hasVoted && !hasVotedRef.current) {
+          // first vote: reset bars then animate
+          yesAnim.setValue(0);
+          noAnim.setValue(0);
+          Animated.parallel([
+            Animated.timing(yesAnim, { toValue: yesPct, duration: ANIMATION_DURATION, easing: Easing.inOut(Easing.ease), useNativeDriver: false }),
+            Animated.timing(noAnim, { toValue: noPct, duration: ANIMATION_DURATION, easing: Easing.inOut(Easing.ease), useNativeDriver: false }),
+          ]).start();
+          prevPct.current = { yes: yesPct, no: noPct };
+        } else if (hasVoted && hasVotedRef.current) {
+          // subsequent updates
+          Animated.parallel([
+            Animated.timing(yesAnim, { toValue: yesPct, duration: ANIMATION_DURATION, easing: Easing.inOut(Easing.ease), useNativeDriver: false }),
+            Animated.timing(noAnim, { toValue: noPct, duration: ANIMATION_DURATION, easing: Easing.inOut(Easing.ease), useNativeDriver: false }),
+          ]).start();
+          prevPct.current = { yes: yesPct, no: noPct };
+        }
+        hasVotedRef.current = hasVoted;
+      }, [hasVoted, yesPct, noPct]);
+
       return (
         <View style={styles.card}>
           <View style={styles.pollHeader}>
@@ -238,30 +177,28 @@ const PollsScreen: React.FC<PollsScreenProps> = ({ navigation }) => {
           <View style={styles.pollOptions}>
             {hasVoted ? (
               <>
-                <PollResultBar
-                  optionText="Yes"
-                  count={item.options[0]?.count || 0}
-                  totalVotes={item.totalVotes}
-                  colorStyle={styles.yesBar}
-                  shouldAnimate={isAnimating}
-                  onAnimationEnd={handleAnimationEnd}
-                />
-                <PollResultBar
-                  optionText="No"
-                  count={item.options[1]?.count || 0}
-                  totalVotes={item.totalVotes}
-                  colorStyle={styles.noBar}
-                  shouldAnimate={isAnimating}
-                  onAnimationEnd={handleAnimationEnd}
-                />
+                <View style={styles.barRow}>
+                  <Text style={styles.optionText}>Yes</Text>
+                  <View style={styles.barBackground}>
+                    <Animated.View style={[styles.barFill, styles.yesBar, { width: yesAnim.interpolate({ inputRange: [0,1], outputRange: ['0%','100%'] }) }]} />
+                  </View>
+                  <Text style={styles.voteCount}>{item.options[0]?.count || 0}</Text>
+                </View>
+                <View style={styles.barRow}>
+                  <Text style={styles.optionText}>No</Text>
+                  <View style={styles.barBackground}>
+                    <Animated.View style={[styles.barFill, styles.noBar, { width: noAnim.interpolate({ inputRange: [0,1], outputRange: ['0%','100%'] }) }]} />
+                  </View>
+                  <Text style={styles.voteCount}>{item.options[1]?.count || 0}</Text>
+                </View>
               </>
             ) : (
               item.options.map((option, index) => (
                 <TouchableOpacity
                   key={option.text + index}
-                  style={getOptionStyle(isVoting)}
+                  disabled={hasVoted}
+                  style={styles.optionContainer}
                   onPress={() => handleVote(item.id, index)}
-                  disabled={isVoting}
                 >
                   <Text style={styles.optionText}>{option.text}</Text>
                   <Text style={styles.voteCount}>{option.count} votes</Text>
@@ -271,11 +208,12 @@ const PollsScreen: React.FC<PollsScreenProps> = ({ navigation }) => {
           </View>
         </View>
       );
-    },
-    (prev, next) => prev.item === next.item && prev.isAnimating === next.isAnimating
-  );
+    };
 
-
+  // Helper for stable option style
+  const getOptionStyle = React.useCallback(() => {
+    return [styles.optionContainer];
+  }, []);
 
   if (error) {
     return (
@@ -295,36 +233,18 @@ const PollsScreen: React.FC<PollsScreenProps> = ({ navigation }) => {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Polls</Text>
-      {/* Ensure each poll has hasVoted property for FlatList type safety */}
-      {/* Memoize animatingPollsKeys for stable extraData */}
-      {(() => {
-        const animatingPollsKeys = React.useMemo(
-          () => Object.keys(animatingPolls).filter(id => animatingPolls[id]).join(','),
-          [animatingPolls]
-        );
-        return (
-          <FlatList
-            data={polls}
-            renderItem={({ item }) => (
-              <PollCard item={item} isAnimating={!!animatingPolls[item.id]} />
-            )}
-            keyExtractor={item => item.id}
-            extraData={animatingPollsKeys}
-            onRefresh={handleRefresh}
-            refreshing={refreshing || loading}
-            ListFooterComponent={
-              loading ? (
-                <ActivityIndicator style={styles.loadingIndicator} />
-              ) : null
-            }
-          />
-        );
-      })()}
-
+      <FlatList
+        data={polls}
+        renderItem={({ item }) => <PollCard item={item} />}
+        keyExtractor={item => item.id}
+        extraData={polls}
+        onRefresh={handleRefresh}
+        refreshing={refreshing || loading}
+        ListFooterComponent={loading ? <ActivityIndicator style={styles.loadingIndicator} /> : null}
+      />
     </View>
   );
 }
-
 
 const styles = StyleSheet.create({
   card: {
@@ -449,11 +369,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#e9ecef',
-  },
-  votingOption: {
-    backgroundColor: '#f0f0f0',
-    opacity: 0.5,
-    borderColor: '#e2e8f0',
   },
   optionText: {
     fontSize: 16,
