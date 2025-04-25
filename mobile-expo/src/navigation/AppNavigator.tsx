@@ -11,6 +11,7 @@ import { colors } from '../utils/theme';
 export type RootStackParamList = {
   Auth: undefined;
   Main: undefined;
+  EditProfile: undefined;
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -46,23 +47,24 @@ const AppNavigator = () => {
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {!user ? (
-          <Stack.Screen 
-            name="Auth" 
+          <Stack.Screen
+            name="Auth"
             component={AuthNavigator}
-            options={{
-              gestureEnabled: false,
-              presentation: 'modal'
-            }}
+            options={{ gestureEnabled: false, presentation: 'modal' }}
           />
         ) : (
-          <Stack.Screen 
-            name="Main" 
-            component={TabNavigator}
-            options={{
-              gestureEnabled: false,
-              presentation: 'modal'
-            }}
-          />
+          <>
+            <Stack.Screen
+              name="Main"
+              component={TabNavigator}
+              options={{ gestureEnabled: false, presentation: 'modal' }}
+            />
+            <Stack.Screen
+              name="EditProfile"
+              component={require('../screens/EditProfileScreen').default}
+              options={{ headerShown: true, title: 'Edit Profile', presentation: 'modal' }}
+            />
+          </>
         )}
       </Stack.Navigator>
     </NavigationContainer>

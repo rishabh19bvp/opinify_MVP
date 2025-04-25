@@ -22,8 +22,8 @@ export default function App() {
   useEffect(() => {
     const initializeApp = async () => {
       try {
-        // Load environment variables
-        const apiBaseUrl = 'http://192.168.29.53:63215';
+        // Determine API base URL (fall back to backend port 3001)
+        const apiBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://192.168.29.215:3001';
         console.log('Initializing API with base URL:', apiBaseUrl);
         
         // Initialize API client

@@ -83,18 +83,11 @@ export const authApi = {
 };
 
 export const pollsApi = {
-  createPoll: async (data: any) => {
-    return apiInstance!.post('/polls', data);
-  },
-  getNearbyPolls: async (latitude: number, longitude: number, radius: number = 10000) => {
-    return apiInstance!.get(`/polls/nearby?lat=${latitude}&lng=${longitude}&radius=${radius}`);
-  },
-  votePoll: async (pollId: string, optionId: string) => {
-    return apiInstance!.post(`/polls/${pollId}/vote`, { optionId });
-  },
-  getPoll: async (pollId: string) => {
-    return apiInstance!.get(`/polls/${pollId}`);
-  },
+  getPolls: () => apiInstance!.get('/api/polls'),
+  createPoll: async (data: any) => apiInstance!.post('/api/polls', data),
+  getNearbyPolls: async (latitude: number, longitude: number, radius: number = 10000) => apiInstance!.get(`/api/polls/nearby?lat=${latitude}&lng=${longitude}&radius=${radius}`),
+  votePoll: async (pollId: string, optionId: string) => apiInstance!.post(`/api/polls/${pollId}/vote`, { optionId }),
+  getPoll: async (pollId: string) => apiInstance!.get(`/api/polls/${pollId}`),
 };
 
 export const newsApi = {
@@ -110,18 +103,20 @@ export const newsApi = {
 };
 
 export const discussionsApi = {
-  createDiscussion: async (data: any) => {
-    return apiInstance!.post('/discussions', data);
-  },
-  getNearbyDiscussions: async (latitude: number, longitude: number, radius: number = 10000) => {
-    return apiInstance!.get(`/discussions/nearby?lat=${latitude}&lng=${longitude}&radius=${radius}`);
-  },
-  getDiscussion: async (discussionId: string) => {
-    return apiInstance!.get(`/discussions/${discussionId}`);
-  },
-  postComment: async (discussionId: string, content: string) => {
-    return apiInstance!.post(`/discussions/${discussionId}/comments`, { content });
-  },
+  createDiscussion: (data: any) => apiInstance!.post('/api/discussions', data),
+  getChannels: (pollId?: string, active?: boolean) =>
+    apiInstance!.get('/api/discussions', { params: { pollId, active } }),
+  getDiscussion: (discussionId: string) => apiInstance!.get(`/api/discussions/${discussionId}`),
+  joinDiscussion: (discussionId: string) => apiInstance!.post(`/api/discussions/${discussionId}/join`),
+  leaveDiscussion: (discussionId: string) => apiInstance!.post(`/api/discussions/${discussionId}/leave`),
+  postMessage: (discussionId: string, content: string) =>
+    apiInstance!.post(`/api/discussions/${discussionId}/messages`, { content }),
+  getMessages: (discussionId: string) =>
+    apiInstance!.get(`/api/discussions/${discussionId}/messages`),
+  markAsRead: (channelId: string, messageId: string) =>
+    apiInstance!.post(`/api/discussions/${channelId}/messages/${messageId}/read`),
+  closeDiscussion: (discussionId: string) =>
+    apiInstance!.put(`/api/discussions/${discussionId}/close`),
 };
 
 export default apiInstance || null;

@@ -110,6 +110,8 @@ const userSchema = new Schema({
       }
     }
   },
+  pollsVoted: { type: Number, default: 0 },
+  groupsCount: { type: Number, default: 0 },
   createdAt: {
     type: Date,
     default: Date.now
@@ -167,6 +169,8 @@ export interface IUser extends Document {
     bio?: string;
     avatarUrl?: string;
   };
+  pollsVoted?: number;
+  groupsCount?: number;
   createdAt: Date;
   updatedAt: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;

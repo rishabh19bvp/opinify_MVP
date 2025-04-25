@@ -50,7 +50,10 @@ export const register = async (req: Request, res: Response) => {
       user: {
         id: user._id,
         username: user.username,
-        email: user.email
+        email: user.email,
+        profile: user.profile,
+        pollsVoted: user.pollsVoted,
+        groupsCount: user.groupsCount
       }
     });
   } catch (error: any) {
@@ -110,7 +113,10 @@ export const login = async (req: Request, res: Response) => {
       user: {
         id: user._id,
         username: user.username,
-        email: user.email
+        email: user.email,
+        profile: user.profile,
+        pollsVoted: user.pollsVoted,
+        groupsCount: user.groupsCount
       }
     });
   } catch (error: any) {
@@ -138,6 +144,8 @@ export const getMe = async (req: Request, res: Response) => {
       });
     }
 
+    // Debug: log user stats
+    console.log(`[getMe] User ${user._id} stats: pollsVoted=${user.pollsVoted}, groupsCount=${user.groupsCount}`);
     res.status(200).json({
       success: true,
       user

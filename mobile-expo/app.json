@@ -2,7 +2,7 @@
   "expo": {
     "name": "Opinify",
     "slug": "opinify",
-    "version": "http://192.168.29.53:632150",
+    "version": "http://192.168.29.215:632150",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",

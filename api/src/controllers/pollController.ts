@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import mongoose from 'mongoose';
 import { Poll, CreatePollInput } from '../models/Poll';
 import { User } from '../models/User';
+import { DiscussionChannel } from '../models/DiscussionChannel';
 
 /**
  * Create a new poll
@@ -34,6 +35,15 @@ export const createPoll = async (req: Request, res: Response, next: NextFunction
       totalVotes: 0
     });
 
+    // auto-create discussion channel for the poll
+    await DiscussionChannel.create({
+      name: poll.title,
+      description: poll.description || '',
+      poll: poll._id,
+      creator: poll.creator,
+      participants: []
+    });
+
     return res.status(201).json({
       success: true,
       data: poll
@@ -60,10 +70,14 @@ import { authenticate } from '../middleware/auth';
 export const getPolls = [authenticate, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = req.user?.id;
+    // Debug log: who is making the request
+    console.log('[getPolls] userId:', userId);
     const polls = await Poll.find().sort({ createdAt: -1 }).populate('creator', 'username');
     const pollsWithVoteStatus = polls.map(poll => {
       const votesArr = poll.votes || [];
-      const hasVoted = votesArr.some(vote => vote.userId && vote.userId.toString() === userId);
+      // Debug log: show votes for each poll
+      console.log(`[getPolls] pollId: ${poll._id}, votes:`, votesArr.map(v => v.userId && v.userId.toString()));
+      const hasVoted = userId && votesArr.some(vote => vote.userId && vote.userId.toString() === userId);
       return {
         ...poll.toObject(),
         hasVoted,
@@ -219,6 +233,9 @@ export const votePoll = async (req: Request, res: Response, next: NextFunction) 
     });
     
     await poll.save();
+    // Increment the user's pollsVoted count
+    await User.findByIdAndUpdate(userId, { $inc: { pollsVoted: 1 } });
+    console.log(`[votePoll] Incremented pollsVoted for user ${userId}`);
     
     return res.status(200).json({
       success: true,

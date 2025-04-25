@@ -4,6 +4,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../utils/theme';
 
 const CustomTabBar = ({ state, descriptors, navigation }: any) => {
+  // Hide tab bar if the current route's options specify tabBarVisible: false
+  const focusedOptions = descriptors[state.routes[state.index].key]?.options;
+  if (focusedOptions && focusedOptions.tabBarVisible === false) {
+    return null;
+  }
   return (
     <View style={styles.tabBar}>
       {state.routes.map((route: any, index: number) => {

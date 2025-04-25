@@ -8,6 +8,7 @@ import { config } from './config';
 import newsRoutes from './routes/newsRoutes';
 import authRoutes from './routes/authRoutes';
 import pollRoutes from './routes/pollRoutes';
+import discussionRoutes from './routes/discussionRoutes';
 import { NewsArticle } from './models/NewsArticle';
 
 const app = express();
@@ -16,10 +17,10 @@ const app = express();
 app.use(cors({
   origin: [
     'http://localhost:19000',
-    'http://192.168.29.53:19000',
-    'http://192.168.29.53:19001',
-    'exp://192.168.29.53:19000',
-    'exp://192.168.29.53:19001'
+    'http://192.168.29.215:19000',
+    'http://192.168.29.215:19001',
+    'exp://192.168.29.215:19000',
+    'exp://192.168.29.215:19001'
   ],
   credentials: true
 }));
@@ -104,6 +105,7 @@ const connectDB = async () => {
 app.use('/api/news', newsRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/polls', pollRoutes);
+app.use('/api/discussions', discussionRoutes);
 
 // Protected routes
 // Add any protected routes here with the authenticate middleware

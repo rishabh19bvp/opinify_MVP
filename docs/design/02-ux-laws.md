@@ -6,9 +6,22 @@ This document outlines the key UX laws and psychological principles that guide o
 ## Table of Contents
 1. [Cognitive Load](#cognitive-load)
 2. [Visual Hierarchy](#visual-hierarchy)
-3. [Response Time](#response-time)
-4. [Decision Making](#decision-making)
-5. [User Patterns](#user-patterns)
+3. [Aesthetic-Usability Effect](#aesthetic-usability-effect)
+4. [Goal-Gradient Effect](#goal-gradient-effect)
+5. [Serial Position Effect](#serial-position-effect)
+6. [Peak-End Rule](#peak-end-rule)
+7. [Zeigarnik Effect](#zeigarnik-effect)
+8. [Law of Common Region](#law-of-common-region)
+9. [Law of Uniform Connectedness](#law-of-uniform-connectedness)
+10. [Parkinson’s Law](#parkinsons-law)
+11. [Occam’s Razor](#occams-razor)
+12. [Pareto Principle](#pareto-principle)
+13. [Postel’s Law](#postels-law)
+14. [Tesler’s Law](#teslers-law)
+15. [Response Time](#response-time)
+16. [Interaction Efficiency](#interaction-efficiency)
+17. [Decision Making](#decision-making)
+18. [User Patterns](#user-patterns)
 
 ## Cognitive Load
 Based on [Miller's Law](https://lawsofux.com/millers-law/) and [Cognitive Load Theory](https://lawsofux.com/cognitive-load/):
@@ -118,6 +131,21 @@ const ResponsiveFeedback = ({ onAction }) => {
     </TouchableOpacity>
   );
 };
+```
+
+## Interaction Efficiency
+Based on [Fitts's Law](https://lawsofux.com/fitts-law/) and [Touch Target Guidelines](https://www.uilaws.com/patterns/touch-targets):
+
+### Principles
+- Use large touch targets (≥48×48dp) to reduce selection difficulty
+- Position frequent actions within easy reach (thumb zone) on mobile
+- Provide adequate spacing between interactive elements to prevent errors
+
+### Implementation Example
+```jsx
+<TouchableOpacity style={{ padding: 16, minHeight: 48, borderRadius: 8, backgroundColor: '#007AFF' }}>
+  <Text style={{ fontSize: 16, color: '#FFFFFF' }}>Primary Action</Text>
+</TouchableOpacity>
 ```
 
 ## Decision Making

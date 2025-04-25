@@ -19,8 +19,6 @@ interface AuthState {
   checkAuthStatus: () => Promise<boolean>;
 }
 
-
-
 export const useAuthStore = create<AuthState>((set, get) => ({
   // State
   user: null,
@@ -45,7 +43,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       set({ isLoading: true, error: null });
       // Initialize API with the correct base URL
-      const apiInstance = await initApi('http://192.168.29.53:63215');
+      const apiInstance = await initApi('http://192.168.29.215:3001');
       const response = await apiInstance.post('/api/auth/login', { email, password });
       
       const { token, user } = response.data;
@@ -53,7 +51,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         const authUser: AuthUser = {
           id: user.id,
           email: user.email,
-          username: user.username
+          username: user.username,
+          profile: user.profile,
+          pollsVoted: user.pollsVoted,
+          groupsCount: user.groupsCount
         };
         
         await set({
@@ -77,7 +78,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       set({ isLoading: true, error: null });
       // Initialize API with the correct base URL
-      const apiInstance = await initApi('http://192.168.29.53:63215');
+      const apiInstance = await initApi('http://192.168.29.215:3001');
       const response = await apiInstance.post('/api/auth/register', { email, password, username });
       
       const { token, user } = response.data;
@@ -85,7 +86,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         const authUser: AuthUser = {
           id: user.id,
           email: user.email,
-          username: user.username
+          username: user.username,
+          profile: user.profile,
+          pollsVoted: user.pollsVoted,
+          groupsCount: user.groupsCount
         };
         
         await set({
@@ -117,6 +121,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         error: null,
         isLoading: false
       });
+      // IMPORTANT: Do not make any authenticated API calls after this point
       return Promise.resolve();
     } catch (error: any) {
       console.error('Logout error:', error);
@@ -129,7 +134,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       set({ isLoading: true, error: null });
       // Initialize API with the correct base URL
-      const apiInstance = await initApi('http://192.168.29.53:63215');
+      const apiInstance = await initApi('http://192.168.29.215:3001');
       const response = await apiInstance.post('/api/auth/reset-password', { email });
       set({ isLoading: false, error: null });
     } catch (error: any) {
@@ -168,10 +173,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         apiInstance.defaults.headers.common['Authorization'] = `Bearer ${token}`;
         const response = await apiInstance.get('/api/auth/me');
         if (response.data.success && response.data.user) {
+          const u = response.data.user;
           const authUser: AuthUser = {
-            id: response.data.user._id,
-            email: response.data.user.email,
-            username: response.data.user.username
+            id: u._id,
+            email: u.email,
+            username: u.username,
+            profile: u.profile,
+            pollsVoted: u.pollsVoted,
+            groupsCount: u.groupsCount
           };
           set({ user: authUser, token });
           return true;

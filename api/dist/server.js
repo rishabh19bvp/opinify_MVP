@@ -14,7 +14,7 @@ const NewsArticle_1 = require("./models/NewsArticle");
 const app = (0, express_1.default)();
 // Middleware
 app.use((0, cors_1.default)({
-    origin: ['http://localhost:19000', 'http://192.168.29.53:19000', 'http://192.168.29.53:19001'],
+    origin: ['http://localhost:19000', 'http://192.168.29.215:19000', 'http://192.168.29.215:19001'],
     credentials: true
 }));
 app.use((0, helmet_1.default)());

@@ -141,8 +141,9 @@ export const getChannel = async (req: Request, res: Response, next: NextFunction
       });
     }
 
-    // Get channel
+    // Get channel with populated message senders for usernames
     const channel = await DiscussionChannel.findById(id)
+      .populate({ path: 'messages.sender', select: 'username' })
       .populate('creator', 'username')
       .populate('poll', 'title')
       .populate('participants', 'username');
@@ -225,6 +226,10 @@ export const joinChannel = async (req: Request, res: Response, next: NextFunctio
         });
       }
 
+      // Increment user's groupsCount
+      await User.findByIdAndUpdate(userId, { $inc: { groupsCount: 1 } });
+      console.log(`[joinChannel] Incremented groupsCount for user ${userId}`);
+
       return res.status(200).json({
         success: true,
         data: channel
@@ -285,6 +290,10 @@ export const leaveChannel = async (req: Request, res: Response, next: NextFuncti
     if (firebaseService.isConnected()) {
       await firebaseService.removeParticipant(id, userId);
     }
+
+    // Decrement user's groupsCount
+    await User.findByIdAndUpdate(userId, { $inc: { groupsCount: -1 } });
+    console.log(`[leaveChannel] Decremented groupsCount for user ${userId}`);
 
     return res.status(200).json({
       success: true,
@@ -401,7 +410,10 @@ export const getMessages = async (req: Request, res: Response, next: NextFunctio
     }
 
     // Get channel
-    const channel = await DiscussionChannel.findById(id);
+    // Populate message senders so each message has a sender.username
+    const channel = await DiscussionChannel.findById(id)
+      .populate({ path: 'messages.sender', select: 'username' });
+
     if (!channel) {
       return res.status(404).json({
         success: false,

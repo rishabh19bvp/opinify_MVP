@@ -12,6 +12,10 @@ This document outlines our component library, including smart components, error 
 ## Component Psychology
 Based on [Aesthetic-Usability Effect](https://lawsofux.com/aesthetic-usability-effect/) and [Peak-End Rule](https://lawsofux.com/peak-end-rule/):
 
+- **Aesthetic-Usability Effect**: Components should be visually appealing as users forgive minor usability issues if the design is attractive.
+- **Peak-End Rule**: Users judge experiences by the most intense point and the end. Ensure error/success states are clear and memorable.
+- **Zeigarnik Effect**: Users remember interrupted or incomplete tasks. Use progress indicators and reminders for unfinished actions.
+
 | Principle        | Implementation                | Impact                          |
 |-----------------|-------------------------------|--------------------------------|
 | Visual Appeal   | Polished, consistent design   | Increases perceived usability  |

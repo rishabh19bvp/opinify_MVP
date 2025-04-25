@@ -12,6 +12,9 @@ export interface AuthUser {
     bio?: string;
     avatarUrl?: string;
   };
+  // New user stats
+  pollsVoted?: number;
+  groupsCount?: number;
 }
 
 export interface AuthResponse {

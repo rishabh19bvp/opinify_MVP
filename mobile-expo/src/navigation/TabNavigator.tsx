@@ -12,7 +12,7 @@ import { RootStackParamList } from './AppNavigator';
 import PollsScreen from '../screens/PollsScreen';
 import NewsScreen from '../screens/NewsScreen';
 import AddPollScreen from '../screens/AddPollScreen';
-import DiscussionsScreen from '../screens/DiscussionsScreen';
+import DiscussionsStackNavigator from './DiscussionsStackNavigator';
 import ProfileScreen from '../screens/ProfileScreen';
 import CustomTabBar from './CustomTabBar';
 
@@ -101,7 +101,7 @@ const TabNavigator = () => {
       />
       <Tab.Screen 
         name="Discussions" 
-        component={DiscussionsScreen} 
+        component={DiscussionsStackNavigator} 
         options={{ title: 'Discussions' }}
       />
       <Tab.Screen 
