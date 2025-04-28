@@ -21,7 +21,7 @@ export default function DiscussionsStackNavigator() {
       <Stack.Screen
         name="DiscussionDetail"
         component={DiscussionDetailScreen}
-        options={{ title: 'Chat' }}
+        options={{ title: 'Chat', headerShown: false }}
       />
     </Stack.Navigator>
   );

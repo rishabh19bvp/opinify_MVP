@@ -57,44 +57,46 @@ const DiscussionDetailScreen: React.FC = ({ navigation }: any) => {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
       <KeyboardAvoidingView
         style={styles.keyboardAvoid}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={140} // Increased for tab bar/safe area
       >
         <View style={styles.container}>
-          <View style={styles.header}>
-            <Text style={styles.title}>{channel?.name}</Text>
-            <TouchableOpacity style={[styles.joinButton, joined && styles.leaveButton]} disabled={joinLoading} onPress={async () => {
-              setJoinLoading(true);
-              try {
-                if (joined) {
-                  await discussionsApi.leaveDiscussion(channelId);
-                  await loadAll();
-                } else {
-                  try {
-                    await discussionsApi.joinDiscussion(channelId);
-                  } catch (e: any) {
-                    const err = e.response?.data?.error || e.message;
-                    // Treat already-a-participant or duplicate-key as success
-                    if (!(typeof err === 'string' && (err.includes('participant') || err.includes('duplicate key')))) {
-                      throw e;
+          <View style={styles.header} onLayout={e => console.log('Header height:', e.nativeEvent.layout.height)}>
+            <View style={styles.channelInfoRow} onLayout={e => console.log('ChannelInfoRow height:', e.nativeEvent.layout.height)}>
+              <Text style={styles.channelName} numberOfLines={1} ellipsizeMode="tail">{channel?.name}</Text>
+              <TouchableOpacity style={[styles.joinButton, joined && styles.leaveButton]} disabled={joinLoading} onPress={async () => {
+                setJoinLoading(true);
+                try {
+                  if (joined) {
+                    await discussionsApi.leaveDiscussion(channelId);
+                    await loadAll();
+                  } else {
+                    try {
+                      await discussionsApi.joinDiscussion(channelId);
+                    } catch (e: any) {
+                      const err = e.response?.data?.error || e.message;
+                      // Treat already-a-participant or duplicate-key as success
+                      if (!(typeof err === 'string' && (err.includes('participant') || err.includes('duplicate key')))) {
+                        throw e;
+                      }
                     }
+                    onJoin?.();
+                    navigation.goBack();
                   }
-                  onJoin?.();
-                  navigation.goBack();
+                } catch (e) {
+                  console.error('Error toggling join:', e);
+                } finally {
+                  setJoinLoading(false);
                 }
-              } catch (e) {
-                console.error('Error toggling join:', e);
-              } finally {
-                setJoinLoading(false);
-              }
-            }} activeOpacity={0.8}>
-              <Text style={styles.joinButtonText}>
-                {joined ? (joinLoading ? 'Leaving...' : 'Leave') : (joinLoading ? 'Joining...' : 'Join')}
-              </Text>
-            </TouchableOpacity>
+              }} activeOpacity={0.8}>
+                <Text style={styles.joinButtonText}>
+                  {joined ? (joinLoading ? 'Leaving...' : 'Leave') : (joinLoading ? 'Joining...' : 'Join')}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
           <View style={styles.listContainer}>
             <FlatList
@@ -156,16 +158,34 @@ const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.colors.background },
   keyboardAvoid: { flex: 1 },
   container: { flex: 1, backgroundColor: theme.colors.background },
-  header: { flexDirection: 'row', justifyContent: 'space-between', padding: theme.spacing.md, borderBottomWidth: 1, borderColor: theme.colors.divider, backgroundColor: theme.colors.surface },
-  title: { fontSize: theme.typography.fontSize.xxl, fontWeight: '600', color: theme.colors.text },
+  header: {
+  width: '100%',
+  paddingTop: theme.spacing.sm,
+  paddingBottom: theme.spacing.xs,
+  paddingHorizontal: theme.spacing.lg,
+  backgroundColor: theme.colors.grey100,
+  borderBottomWidth: 1,
+  borderColor: theme.colors.divider,
+  borderTopLeftRadius: theme.borderRadius.lg,
+  borderTopRightRadius: theme.borderRadius.lg,
+  alignSelf: 'center',
+},
+  channelInfoRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  channelName: { flex: 1, fontSize: theme.typography.fontSize.xl, fontWeight: '700', color: theme.colors.text, marginRight: theme.spacing.md, textAlignVertical: 'center' },
+  joinButton: { backgroundColor: theme.colors.primary, paddingVertical: theme.spacing.xs, paddingHorizontal: theme.spacing.lg, borderRadius: theme.borderRadius.round, minWidth: 64, alignItems: 'center', justifyContent: 'center', height: 36, shadowColor: theme.colors.primary, shadowOpacity: 0.12, shadowRadius: 6, shadowOffset: { width: 0, height: 2 } },
+  leaveButton: { backgroundColor: theme.colors.error },
+  joinButtonText: { color: theme.colors.white, fontWeight: '600', fontSize: theme.typography.fontSize.md, letterSpacing: 0.2 },
   messages: { flex: 1, padding: theme.spacing.sm },
+emptyState: {
+  flex: 1,
+  justifyContent: 'center',
+  alignItems: 'center',
+  paddingHorizontal: theme.spacing.xl,
+},
   msg: { backgroundColor: theme.colors.surface, borderRadius: theme.borderRadius.sm, padding: theme.spacing.sm, marginVertical: theme.spacing.xs, marginHorizontal: theme.spacing.sm, ...theme.shadows.sm },
   sender: { fontWeight: '600', color: theme.colors.primary, marginBottom: theme.spacing.xs, fontSize: theme.typography.fontSize.md },
   inputRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: theme.spacing.sm, borderTopWidth: 1, borderColor: theme.colors.divider, backgroundColor: theme.colors.surface, paddingVertical: theme.spacing.sm, ...theme.shadows.md, position: 'absolute', left: 0, right: 0, bottom: 0 },
   input: { flex: 1, borderWidth: 1, borderColor: theme.colors.border, borderRadius: theme.borderRadius.sm, paddingHorizontal: theme.spacing.sm, paddingVertical: theme.spacing.sm, marginRight: theme.spacing.sm, color: theme.colors.text },
-  joinButton: { backgroundColor: theme.colors.primary, padding: theme.spacing.sm, borderRadius: theme.borderRadius.sm },
-  leaveButton: { backgroundColor: theme.colors.error },
-  joinButtonText: { color: theme.colors.white, fontWeight: '600', textAlign: 'center' },
   sendButton: { backgroundColor: theme.colors.primary, paddingHorizontal: theme.spacing.md, paddingVertical: theme.spacing.sm, borderRadius: theme.borderRadius.sm },
   sendButtonText: { color: theme.colors.white, fontWeight: '600' },
   listContainer: { flex: 1, paddingBottom: theme.spacing.xxl },

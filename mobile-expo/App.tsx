@@ -23,7 +23,7 @@ export default function App() {
     const initializeApp = async () => {
       try {
         // Determine API base URL (fall back to backend port 3001)
-        const apiBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://192.168.29.215:3001';
+        const apiBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://192.168.29.144:3001';
         console.log('Initializing API with base URL:', apiBaseUrl);
         
         // Initialize API client

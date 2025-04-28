@@ -9,7 +9,7 @@ export const config = {
     measurementId: process.env.EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID,
   },
   api: {
-    baseUrl: process.env.EXPO_PUBLIC_API_BASE_URL || 'http://192.168.29.215:3001',
+    baseUrl: process.env.EXPO_PUBLIC_API_BASE_URL || 'http://192.168.29.144:3001',
     timeout: 10000,
   },
   news: {

@@ -43,7 +43,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       set({ isLoading: true, error: null });
       // Initialize API with the correct base URL
-      const apiInstance = await initApi('http://192.168.29.215:3001');
+      const apiInstance = await initApi('http://192.168.29.144:3001');
       const response = await apiInstance.post('/api/auth/login', { email, password });
       
       const { token, user } = response.data;
@@ -78,7 +78,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       set({ isLoading: true, error: null });
       // Initialize API with the correct base URL
-      const apiInstance = await initApi('http://192.168.29.215:3001');
+      const apiInstance = await initApi('http://192.168.29.144:3001');
       const response = await apiInstance.post('/api/auth/register', { email, password, username });
       
       const { token, user } = response.data;
@@ -134,7 +134,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       set({ isLoading: true, error: null });
       // Initialize API with the correct base URL
-      const apiInstance = await initApi('http://192.168.29.215:3001');
+      const apiInstance = await initApi('http://192.168.29.144:3001');
       const response = await apiInstance.post('/api/auth/reset-password', { email });
       set({ isLoading: false, error: null });
     } catch (error: any) {
