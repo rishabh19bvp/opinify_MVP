@@ -1,8 +1,6 @@
 import axios from 'axios';
 import { config } from '../config';
 import { NewsArticle, INewsArticle } from '../models/NewsArticle';
-import mongoose from 'mongoose';
-import { response } from 'express';
 
 // Define the NewsAPI.org response types
 interface NewsAPIArticle {
@@ -173,17 +171,10 @@ export class NewsService {
         const allTags = [...new Set([...titleTags, ...descriptionTags])];
         
         try {
-          // Check MongoDB connection status
-          const isConnected = mongoose.connection.readyState === 1;
-          console.log('[NewsService] MongoDB connection status:', {
-            readyState: mongoose.connection.readyState,
-            isConnected
-          });
-
-          if (!isConnected) {
-            console.error('[NewsService] MongoDB is not connected!');
-            throw new Error('MongoDB connection lost');
-          }
+          // Optionally check MongoDB connection status here if needed
+          // (connection assumed to be managed elsewhere in the app)
+          // If you want to check connection, use NewsArticle.db.readyState === 1
+          // Otherwise, skip this check for simplicity
 
           // Log article details before processing
           console.log('[NewsService] Processing article:', {

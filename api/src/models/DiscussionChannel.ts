@@ -1,12 +1,13 @@
+// User references now use firebaseUid (string) instead of ObjectId.
 import mongoose, { Document, Schema } from 'mongoose';
 import { IPollDocument } from './Poll';
 
 // Message interface
 export interface IMessage {
-  sender: mongoose.Types.ObjectId;
+  sender: string; // firebaseUid
   content: string;
   timestamp: Date;
-  readBy: mongoose.Types.ObjectId[];
+  readBy: string[];
 }
 
 // Message as a document
@@ -15,8 +16,7 @@ export interface IMessageDocument extends IMessage, Document {}
 // Message schema
 const messageSchema = new Schema<IMessageDocument, mongoose.Model<IMessageDocument>>({
   sender: {
-    type: Schema.Types.ObjectId,
-    ref: 'User',
+    type: String,
     required: [true, 'Sender is required']
   },
   content: {
@@ -30,8 +30,7 @@ const messageSchema = new Schema<IMessageDocument, mongoose.Model<IMessageDocume
     default: Date.now
   },
   readBy: [{
-    type: Schema.Types.ObjectId,
-    ref: 'User'
+    type: String
   }]
 });
 
@@ -39,9 +38,9 @@ const messageSchema = new Schema<IMessageDocument, mongoose.Model<IMessageDocume
 export interface IDiscussionChannel {
   name: string;
   description?: string;
-  poll: mongoose.Types.ObjectId;
-  creator: mongoose.Types.ObjectId;
-  participants: mongoose.Types.ObjectId[];
+  poll: mongoose.Types.ObjectId; // still ObjectId for poll reference
+  creator: string; // firebaseUid
+  participants: string[]; // firebaseUid[]
   messages: IMessage[];
   isActive: boolean;
   lastActivity: Date;
@@ -49,12 +48,12 @@ export interface IDiscussionChannel {
 }
 
 // Discussion channel as a document
-export interface IDiscussionChannelDocument extends IDiscussionChannel, Document {
-  addMessage(senderId: mongoose.Types.ObjectId, content: string): Promise<IMessageDocument>;
-  addParticipant(userId: mongoose.Types.ObjectId): Promise<boolean>;
-  removeParticipant(userId: mongoose.Types.ObjectId): Promise<boolean>;
-  markMessageAsRead(userId: mongoose.Types.ObjectId, messageId: mongoose.Types.ObjectId): Promise<boolean>;
-  getUnreadCount(userId: mongoose.Types.ObjectId): Promise<number>;
+export interface IDiscussionChannelDocument extends Document, IDiscussionChannel {
+  addMessage(senderId: string, content: string): Promise<IMessageDocument>;
+  addParticipant(userId: string): Promise<boolean>;
+  removeParticipant(userId: string): Promise<boolean>;
+  markMessageAsRead(userId: string, messageId: mongoose.Types.ObjectId): Promise<boolean>;
+  getUnreadCount(userId: string): Promise<number>;
 }
 
 // Discussion channel schema
@@ -76,13 +75,13 @@ const discussionChannelSchema = new Schema<IDiscussionChannelDocument, mongoose.
     required: [true, 'Associated poll is required']
   },
   creator: {
-    type: Schema.Types.ObjectId,
-    ref: 'User',
-    required: [true, 'Creator is required']
+    type: String,
+    required: [true, 'Creator is required'],
+    index: true
   },
   participants: [{
-    type: Schema.Types.ObjectId,
-    ref: 'User'
+    type: String,
+    index: true
   }],
   messages: [messageSchema],
   isActive: {
@@ -109,11 +108,11 @@ discussionChannelSchema.index({ lastActivity: -1 });
 
 // Add a message to the channel
 discussionChannelSchema.methods.addMessage = async function(
-  senderId: mongoose.Types.ObjectId,
+  senderId: string,
   content: string
 ): Promise<IMessageDocument> {
   // Check if user is a participant
-  if (!this.participants.some((p: mongoose.Types.ObjectId) => p.equals(senderId))) {
+  if (!this.participants.some((p: string) => p === senderId)) {
     throw new Error('User is not a participant in this channel');
   }
   
@@ -140,10 +139,10 @@ discussionChannelSchema.methods.addMessage = async function(
 
 // Add a participant to the channel
 discussionChannelSchema.methods.addParticipant = async function(
-  userId: mongoose.Types.ObjectId
+  userId: string
 ): Promise<boolean> {
   // Check if user is already a participant
-  if (this.participants.some((p: mongoose.Types.ObjectId) => p.equals(userId))) {
+  if (this.participants.some((p: string) => p === userId)) {
     return false;
   }
   
@@ -163,15 +162,15 @@ discussionChannelSchema.methods.addParticipant = async function(
 
 // Remove a participant from the channel
 discussionChannelSchema.methods.removeParticipant = async function(
-  userId: mongoose.Types.ObjectId
+  userId: string
 ): Promise<boolean> {
   // Check if user is a participant
-  if (!this.participants.some((p: mongoose.Types.ObjectId) => p.equals(userId))) {
+  if (!this.participants.some((p: string) => p === userId)) {
     return false;
   }
   
   // Remove user from participants
-  this.participants = this.participants.filter((p: mongoose.Types.ObjectId) => !p.equals(userId));
+  this.participants = this.participants.filter((p: string) => p !== userId);
   
   // Save the channel
   await this.save();
@@ -181,11 +180,11 @@ discussionChannelSchema.methods.removeParticipant = async function(
 
 // Mark a message as read by a user
 discussionChannelSchema.methods.markMessageAsRead = async function(
-  userId: mongoose.Types.ObjectId,
+  userId: string,
   messageId: mongoose.Types.ObjectId
 ): Promise<boolean> {
   // Check if user is a participant
-  if (!this.participants.some((p: mongoose.Types.ObjectId) => p.equals(userId))) {
+  if (!this.participants.some((p: string) => p === userId)) {
     return false;
   }
   
@@ -196,7 +195,7 @@ discussionChannelSchema.methods.markMessageAsRead = async function(
   }
   
   // Check if user has already read the message
-  if (message.readBy.some((id: mongoose.Types.ObjectId) => id.equals(userId))) {
+  if (message.readBy.some((id: string) => id === userId)) {
     return true;
   }
   
@@ -211,15 +210,15 @@ discussionChannelSchema.methods.markMessageAsRead = async function(
 
 // Get count of unread messages for a user
 discussionChannelSchema.methods.getUnreadCount = async function(
-  userId: mongoose.Types.ObjectId
+  userId: string
 ): Promise<number> {
   // Check if user is a participant
-  if (!this.participants.some((p: mongoose.Types.ObjectId) => p.equals(userId))) {
+  if (!this.participants.some((p: string) => p === userId)) {
     return 0;
   }
   
   // Count messages not read by the user
-  return this.messages.filter((m: IMessage) => !m.readBy.some((id: mongoose.Types.ObjectId) => id.equals(userId))).length;
+  return this.messages.filter((m: IMessage) => !m.readBy.some((id: string) => id === userId)).length;
 };
 
 // Static method to find channels by poll
@@ -231,7 +230,7 @@ discussionChannelSchema.statics.findByPoll = async function(
 
 // Static method to find channels by participant
 discussionChannelSchema.statics.findByParticipant = async function(
-  userId: mongoose.Types.ObjectId
+  userId: string
 ): Promise<IDiscussionChannelDocument[]> {
   return this.find({ participants: userId }).sort({ lastActivity: -1 });
 };
@@ -244,6 +243,6 @@ discussionChannelSchema.statics.findActive = async function(): Promise<IDiscussi
 // Define the model
 export const DiscussionChannel = mongoose.model<IDiscussionChannelDocument, mongoose.Model<IDiscussionChannelDocument> & {
   findByPoll(pollId: mongoose.Types.ObjectId): Promise<IDiscussionChannelDocument[]>;
-  findByParticipant(userId: mongoose.Types.ObjectId): Promise<IDiscussionChannelDocument[]>;
+  findByParticipant(userId: string): Promise<IDiscussionChannelDocument[]>;
   findActive(): Promise<IDiscussionChannelDocument[]>;
 }>('DiscussionChannel', discussionChannelSchema);

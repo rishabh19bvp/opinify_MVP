@@ -26,7 +26,7 @@ export interface IUserDocument extends IUser, Document {
 }
 
 export interface IUserModel extends mongoose.Model<IUserDocument> {
-  findByCredentials(email: string, password: string): Promise<IUserDocument | null>;
+  // findByCredentials(email: string, password: string): Promise<IUserDocument | null>; // [Password logic archived: now handled by Firebase Auth]
 }
 
 export interface UserInput {
@@ -48,7 +48,7 @@ export interface UserInput {
 export interface UserUpdateInput {
   username?: string;
   email?: string;
-  password?: string;
+  // password?: string; // [Password field archived: now handled by Firebase Auth]
   location?: {
     latitude?: number;
     longitude?: number;

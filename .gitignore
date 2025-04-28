@@ -1,1 +1,7 @@
 node_modules
+
+# Ignore secrets directory and sensitive files
+secrets/*.json
+!secrets/.gitkeep
+.env
+!.env

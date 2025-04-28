@@ -44,15 +44,15 @@ export const createChannel = async (req: Request, res: Response, next: NextFunct
       name,
       description,
       poll: new mongoose.Types.ObjectId(pollId),
-      creator: new mongoose.Types.ObjectId(userId),
-      participants: [new mongoose.Types.ObjectId(userId)],
+      creator: userId, // firebaseUid
+      participants: [userId], // firebaseUid[]
       maxParticipants: maxParticipants || 50
     });
 
     // Create channel in Firebase if connected
     if (firebaseService.isConnected()) {
       // Get creator info
-      const creator = await User.findById(userId).select('username');
+      const creator = await User.findOne({ firebaseUid: userId }).select('username');
 
       // Create in Firebase
       await firebaseService.createChannel(channel._id?.toString() || channel.id, {
@@ -205,7 +205,7 @@ export const joinChannel = async (req: Request, res: Response, next: NextFunctio
 
     try {
       // Add user to participants
-      const added = await channel.addParticipant(new mongoose.Types.ObjectId(userId));
+      const added = await channel.addParticipant(userId);
       
       if (!added) {
         return res.status(400).json({
@@ -217,7 +217,7 @@ export const joinChannel = async (req: Request, res: Response, next: NextFunctio
       // Add to Firebase if connected
       if (firebaseService.isConnected()) {
         // Get user info
-        const user = await User.findById(userId).select('username');
+        const user = await User.findOne({ firebaseUid: userId }).select('username');
 
         // Add to Firebase
         await firebaseService.addParticipant(id, userId, {
@@ -227,7 +227,7 @@ export const joinChannel = async (req: Request, res: Response, next: NextFunctio
       }
 
       // Increment user's groupsCount
-      await User.findByIdAndUpdate(userId, { $inc: { groupsCount: 1 } });
+      await User.findOneAndUpdate({ firebaseUid: userId }, { $inc: { groupsCount: 1 } });
       console.log(`[joinChannel] Incremented groupsCount for user ${userId}`);
 
       return res.status(200).json({
@@ -277,7 +277,7 @@ export const leaveChannel = async (req: Request, res: Response, next: NextFuncti
     }
 
     // Remove user from participants
-    const removed = await channel.removeParticipant(new mongoose.Types.ObjectId(userId));
+    const removed = await channel.removeParticipant(userId);
     
     if (!removed) {
       return res.status(400).json({
@@ -292,7 +292,7 @@ export const leaveChannel = async (req: Request, res: Response, next: NextFuncti
     }
 
     // Decrement user's groupsCount
-    await User.findByIdAndUpdate(userId, { $inc: { groupsCount: -1 } });
+    await User.findOneAndUpdate({ firebaseUid: userId }, { $inc: { groupsCount: -1 } });
     console.log(`[leaveChannel] Decremented groupsCount for user ${userId}`);
 
     return res.status(200).json({
@@ -347,7 +347,7 @@ export const sendMessage = async (req: Request, res: Response, next: NextFunctio
     try {
       // Add message to channel
       const message = await channel.addMessage(
-        new mongoose.Types.ObjectId(userId),
+        userId,
         content
       );
 
@@ -355,7 +355,7 @@ export const sendMessage = async (req: Request, res: Response, next: NextFunctio
       let firebaseMessageId = null;
       if (firebaseService.isConnected()) {
         // Get user info
-        const user = await User.findById(userId).select('username');
+        const user = await User.findOne({ firebaseUid: userId }).select('username');
 
         // Add to Firebase
         firebaseMessageId = await firebaseService.addMessage(id, {
@@ -422,9 +422,7 @@ export const getMessages = async (req: Request, res: Response, next: NextFunctio
     }
 
     // Check if user is a participant
-    const isParticipant = channel.participants.some(
-      (p: mongoose.Types.ObjectId) => p.equals(new mongoose.Types.ObjectId(userId))
-    );
+    const isParticipant = channel.participants.some((p: string) => p === userId);
     
     if (!isParticipant) {
       return res.status(403).json({
@@ -497,7 +495,7 @@ export const markMessageAsRead = async (req: Request, res: Response, next: NextF
 
     // Mark message as read
     const marked = await channel.markMessageAsRead(
-      new mongoose.Types.ObjectId(userId),
+      userId,
       new mongoose.Types.ObjectId(messageId)
     );
     
@@ -554,7 +552,7 @@ export const closeChannel = async (req: Request, res: Response, next: NextFuncti
     }
 
     // Check if user is the creator
-    if (!channel.creator.equals(new mongoose.Types.ObjectId(userId))) {
+    if (channel.creator !== userId) {
       return res.status(403).json({
         success: false,
         error: 'Only the channel creator can close the channel'

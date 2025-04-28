@@ -21,7 +21,7 @@ export class PollService {
           coordinates: [pollData.location.longitude, pollData.location.latitude]
         },
         options: pollData.options.map(option => ({ text: option.text, count: 0 })),
-        creator: new mongoose.Types.ObjectId(userId),
+        creator: userId,
         expiresAt: pollData.expiresAt,
         category: pollData.category,
         tags: pollData.tags,
@@ -97,7 +97,7 @@ export class PollService {
       }
       
       // Check if user has already voted
-      const canVote = await poll.canVote(new mongoose.Types.ObjectId(userId));
+      const canVote = await poll.canVote(userId);
       
       if (!canVote) {
         throw new Error('You have already voted on this poll');
@@ -118,8 +118,8 @@ export class PollService {
       }
       
       poll.votes.push({
-        userId: new mongoose.Types.ObjectId(userId),
-        optionIndex
+        userId: userId,
+        optionIndex: optionIndex
       });
       
       await poll.save();
@@ -171,7 +171,7 @@ export class PollService {
       }
       
       // Check if user is the creator of the poll
-      if (poll.creator.toString() !== userId) {
+      if (poll.creator !== userId) {
         throw new Error('You are not authorized to delete this poll');
       }
       

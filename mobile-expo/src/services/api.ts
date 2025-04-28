@@ -29,6 +29,7 @@ export const initApi = async (baseUrl: string): Promise<AxiosInstance> => {
       // If token exists, add it to the headers
       if (token && config.headers) {
         config.headers.Authorization = `Bearer ${token}`;
+        console.log('API REQUEST TOKEN:', token);
       }
       
       return config;

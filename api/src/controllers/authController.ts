@@ -11,18 +11,19 @@ import { config } from '../config';
  */
 export const register = async (req: Request, res: Response) => {
   try {
-    const { username, email, password } = req.body;
+    const { username, email } = req.body;
+    // const { password } = req.body; // [Password logic archived]
 
     // Validate input
-    if (!username || !email || !password) {
+    if (!username || !email /* || !password */) {
       return res.status(400).json({
         success: false,
-        error: 'Please provide username, email and password'
+        error: 'Please provide username and email' // Password check removed
       });
     }
 
     // Check if user already exists
-    const userExists = await User.findOne({ $or: [{ email }, { username }] });
+    const userExists = await User.findOne({ $or: [{ email }, { username }] }); // No change needed here, as registration is by email/username
     if (userExists) {
       return res.status(400).json({
         success: false,
@@ -30,16 +31,23 @@ export const register = async (req: Request, res: Response) => {
       });
     }
 
-    // Create user
-    const user = await User.create({
-      username,
-      email,
-      password
-    });
+    // Create user (password removed)
+    const { firebaseUid } = req.body;
+if (!firebaseUid) {
+  return res.status(400).json({
+    success: false,
+    error: 'Firebase UID is required'
+  });
+}
+const user = await User.create({
+  firebaseUid,
+  username,
+  email
+});
 
     // Generate JWT token
     const token = jwt.sign(
-      { id: user._id },
+      { firebaseUid: user.firebaseUid },
       process.env.JWT_SECRET || 'secret',
       { expiresIn: '30d' }
     );
@@ -48,7 +56,7 @@ export const register = async (req: Request, res: Response) => {
       success: true,
       token,
       user: {
-        id: user._id,
+        firebaseUid: user.firebaseUid,
         username: user.username,
         email: user.email,
         profile: user.profile,
@@ -92,17 +100,12 @@ export const login = async (req: Request, res: Response) => {
     }
 
     // Check if password matches
-    const isMatch = await user.comparePassword(password);
-    if (!isMatch) {
-      return res.status(401).json({
-        success: false,
-        error: 'Invalid credentials'
-      });
-    }
+    // Password check removed: use Firebase Auth for authentication
+// if (!isMatch) { ... }
 
     // Generate JWT token
     const token = jwt.sign(
-      { id: user._id },
+      { firebaseUid: user.firebaseUid },
       process.env.JWT_SECRET || 'secret',
       { expiresIn: '30d' }
     );
@@ -111,7 +114,7 @@ export const login = async (req: Request, res: Response) => {
       success: true,
       token,
       user: {
-        id: user._id,
+        firebaseUid: user.firebaseUid,
         username: user.username,
         email: user.email,
         profile: user.profile,
@@ -135,17 +138,41 @@ export const login = async (req: Request, res: Response) => {
  */
 export const getMe = async (req: Request, res: Response) => {
   try {
-    const user = await User.findById(req.user?.id).select('-password');
+    const firebaseUid = req.user?.id;
+    console.log(`[getMe] Incoming request for user with firebaseUid:`, firebaseUid);
+    if (!firebaseUid) {
+      console.warn('[getMe] No firebaseUid found in request.');
+      return res.status(401).json({ success: false, error: 'Unauthorized: No firebaseUid' });
+    }
+    let user = await User.findOne({ firebaseUid }).select('-password');
+    console.log('[getMe] User lookup result:', user);
     
     if (!user) {
-      return res.status(404).json({
-        success: false,
-        error: 'User not found'
-      });
+      console.warn(`[getMe] No user found in MongoDB for firebaseUid: ${firebaseUid}`);
+      // Attempt to auto-provision user
+      // Try to extract email and username from req.user if available
+      // req.user may only have 'id', so fallback to firebaseUid-based values
+      const email = `${firebaseUid}@unknown.email`;
+      const username = firebaseUid;
+      try {
+        user = await User.create({
+          firebaseUid,
+          email,
+          username,
+        });
+        console.log(`[getMe] Auto-provisioned new user in MongoDB for firebaseUid: ${firebaseUid}`);
+      } catch (provisionErr: any) {
+        console.error('[getMe] Failed to auto-provision user:', provisionErr);
+        return res.status(500).json({
+          success: false,
+          error: 'Failed to auto-provision user',
+          firebaseUidSearched: firebaseUid
+        });
+      }
     }
 
     // Debug: log user stats
-    console.log(`[getMe] User ${user._id} stats: pollsVoted=${user.pollsVoted}, groupsCount=${user.groupsCount}`);
+    console.log(`[getMe] User ${user.firebaseUid} stats: pollsVoted=${user.pollsVoted}, groupsCount=${user.groupsCount}`);
     res.status(200).json({
       success: true,
       user

@@ -12,7 +12,7 @@ export interface IPoll {
     text: string;
     count: number;
   }[];
-  creator: Types.ObjectId;
+  creator: string; // firebaseUid
   expiresAt: Date;
   totalVotes: number;
   createdAt: Date;
@@ -25,7 +25,7 @@ export interface IPoll {
 export interface IPollDocument extends IPoll, Document {
   calculateDistance(lat: number, lng: number): number;
   isExpired(): boolean;
-  canVote(userId: Types.ObjectId): Promise<boolean>;
+  canVote(userId: string): Promise<boolean>;
 }
 
 export interface IPollModel extends mongoose.Model<IPollDocument> {

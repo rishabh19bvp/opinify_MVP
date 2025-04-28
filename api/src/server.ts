@@ -13,14 +13,25 @@ import { NewsArticle } from './models/NewsArticle';
 
 const app = express();
 
+// Request logging (granular)
+app.use((req, res, next) => {
+  const now = new Date().toISOString();
+  console.log(`[REQ] [${now}] ${req.method} ${req.originalUrl} - START`);
+  res.on('finish', () => {
+    const end = new Date().toISOString();
+    console.log(`[REQ] [${end}] ${req.method} ${req.originalUrl} - END Status: ${res.statusCode}`);
+  });
+  next();
+});
+
 // Middleware
 app.use(cors({
   origin: [
     'http://localhost:19000',
-    'http://192.168.29.144:19000',
-    'http://192.168.29.144:19001',
-    'exp://192.168.29.144:19000',
-    'exp://192.168.29.144:19001'
+    'http://192.168.29.53:19000',
+    'http://192.168.29.53:19001',
+    'exp://192.168.29.53:19000',
+    'exp://192.168.29.53:19001'
   ],
   credentials: true
 }));
@@ -52,8 +63,9 @@ const connectDB = async () => {
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      console.log('[MongoDB] Attempting to connect...');
-      console.log('[MongoDB] Connection string:', config.database.uri);
+      const now = new Date().toISOString();
+      console.log(`[MongoDB] [${now}] Attempt ${attempt}: Attempting to connect...`);
+      console.log(`[MongoDB] [${now}] Connection string:`, config.database.uri);
       
       await mongoose.connect(config.database.uri, {
         serverSelectionTimeoutMS: 30000,
@@ -63,8 +75,9 @@ const connectDB = async () => {
         w: 'majority'
       });
       
-      console.log('[MongoDB] Connection successful!');
-      console.log('[MongoDB] Connection options:', {
+      const connectedAt = new Date().toISOString();
+      console.log(`[MongoDB] [${connectedAt}] Connection successful!`);
+      console.log(`[MongoDB] [${connectedAt}] Connection options:`, {
         serverSelectionTimeoutMS: 30000,
         socketTimeoutMS: 45000,
         autoIndex: true,
@@ -74,7 +87,7 @@ const connectDB = async () => {
       
       // Check connection status
       const isConnected = mongoose.connection.readyState === 1;
-      console.log('[MongoDB] Connection status:', {
+      console.log(`[MongoDB] [${connectedAt}] Connection status:`, {
         readyState: mongoose.connection.readyState,
         isConnected
       });
@@ -84,16 +97,17 @@ const connectDB = async () => {
       
       return;
     } catch (err) {
-      console.error(`[MongoDB] Connection attempt ${attempt} failed:`);
-      console.error('[MongoDB] Error:', err);
-      console.error('[MongoDB] Connection string:', config.database.uri);
+      const failTime = new Date().toISOString();
+      console.error(`[MongoDB] [${failTime}] Connection attempt ${attempt} failed:`);
+      console.error(`[MongoDB] [${failTime}] Error:`, err);
+      console.error(`[MongoDB] [${failTime}] Connection string:`, config.database.uri);
       
       if (attempt === maxRetries) {
-        console.error('[MongoDB] Max retries reached. Exiting...');
+        console.error(`[MongoDB] [${failTime}] Max retries reached. Exiting...`);
         throw err;
       }
       
-      console.log(`[MongoDB] Retrying in ${retryDelay / 1000} seconds...`);
+      console.log(`[MongoDB] [${failTime}] Retrying in ${retryDelay / 1000} seconds...`);
       await new Promise(resolve => setTimeout(resolve, retryDelay));
     }
   }

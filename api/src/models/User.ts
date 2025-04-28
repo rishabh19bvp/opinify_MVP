@@ -1,5 +1,4 @@
 import mongoose, { Schema, Document, Model } from 'mongoose';
-import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 
 // Zod schema for validation
@@ -35,6 +34,12 @@ const userSchemaValidator = z.object({
 
 // Mongoose schema
 const userSchema = new Schema({
+  firebaseUid: {
+    type: String,
+    required: [true, 'Firebase UID is required'],
+    unique: true,
+    index: true
+  },
   username: {
     type: String,
     required: [true, 'Username is required'],
@@ -57,11 +62,7 @@ const userSchema = new Schema({
       message: 'Invalid email format'
     }
   },
-  password: {
-    type: String,
-    required: [true, 'Password is required'],
-    minlength: [8, 'Password must be at least 8 characters']
-  },
+
   location: {
     latitude: {
       type: Number,
@@ -124,26 +125,26 @@ const userSchema = new Schema({
   timestamps: true
 });
 
-// Hash password before saving
-userSchema.pre('save', async function(this: Document & { password: string }) {
-  if (!this.isModified('password')) return;
-  
-  try {
-    const salt = await bcrypt.genSalt(10);
-    this.password = await bcrypt.hash(this.password, salt);
-  } catch (error) {
-    throw new Error('Password hashing failed');
-  }
-});
+// [Password hashing archived: now handled by Firebase Auth]
+// userSchema.pre('save', async function(this: Document & { password: string }) {
+//   if (!this.isModified('password')) return;
+//   try {
+//     const salt = await bcrypt.genSalt(10);
+//     this.password = await bcrypt.hash(this.password, salt);
+//   } catch (error) {
+//     throw new Error('Password hashing failed');
+//   }
+// });
 
-// Method to compare password
-userSchema.methods.comparePassword = async function(this: Document & { password: string }, candidatePassword: string) {
-  try {
-    return await bcrypt.compare(candidatePassword, this.password);
-  } catch (error) {
-    throw new Error('Password comparison failed');
-  }
-};
+// [Password comparison archived: now handled by Firebase Auth]
+// userSchema.methods.comparePassword = async function(this: Document & { password: string }, candidatePassword: string) {
+//   try {
+//     return await bcrypt.compare(candidatePassword, this.password);
+//   } catch (error) {
+//     throw new Error('Password comparison failed');
+//   }
+// };
+
 
 // Method to validate user data
 userSchema.statics.validateData = function(this: Model<Document & { password: string }>, data: any) {
@@ -156,9 +157,10 @@ userSchema.statics.validateData = function(this: Model<Document & { password: st
 
 // Interface for User document
 export interface IUser extends Document {
+  firebaseUid: string;
   username: string;
   email: string;
-  password: string;
+  // password: string; // [Password field archived: now handled by Firebase Auth]
   location?: {
     latitude: number;
     longitude: number;

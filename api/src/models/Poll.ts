@@ -31,9 +31,9 @@ const pollSchema = new Schema({
   },
   options: [optionSchema],
   creator: {
-    type: Schema.Types.ObjectId,
-    ref: 'User',
-    required: [true, 'Creator is required']
+    type: String, // firebaseUid
+    required: [true, 'Creator is required'],
+    index: true
   },
   expiresAt: {
     type: Date,
@@ -66,8 +66,9 @@ const pollSchema = new Schema({
   }],
   votes: [{
     userId: {
-      type: Schema.Types.ObjectId,
-      ref: 'User'
+      type: String, // firebaseUid
+      required: true,
+      index: true
     },
     optionIndex: {
       type: Number,
@@ -86,7 +87,7 @@ pollSchema.methods.isExpired = function(): boolean {
 };
 
 // Check if user can vote
-pollSchema.methods.canVote = async function(userId: mongoose.Types.ObjectId): Promise<boolean> {
+pollSchema.methods.canVote = async function(userId: string): Promise<boolean> {
   const vote = await Poll.findOne({
     _id: this._id,
     'votes.userId': userId
@@ -116,7 +117,7 @@ export interface IPoll {
     text: string;
     count: number;
   }[];
-  creator: Types.ObjectId;
+  creator: string; // firebaseUid
   expiresAt: Date;
   totalVotes: number;
   createdAt: Date;
@@ -125,18 +126,18 @@ export interface IPoll {
   category?: string;
   tags?: string[];
   votes?: {
-    userId: Types.ObjectId;
+    userId: string; // firebaseUid
     optionIndex: number;
   }[];
 }
 
-export interface IPollDocument extends IPoll, Document {
+export interface IPollDocument extends Document, IPoll {
   isExpired(): boolean;
-  canVote(userId: mongoose.Types.ObjectId): Promise<boolean>;
+  canVote(userId: string): Promise<boolean>;
 }
 
-export interface IPollModel extends mongoose.Model<IPollDocument> {
-  findByCreator(creatorId: mongoose.Types.ObjectId): Promise<IPollDocument[]>;
+export interface IPollModel extends Model<IPollDocument> {
+  findByCreator(creatorId: string): Promise<IPollDocument[]>;
   findByCategory(category: string): Promise<IPollDocument[]>;
 }
 

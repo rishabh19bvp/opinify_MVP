@@ -27,7 +27,7 @@ export const createPoll = async (req: Request, res: Response, next: NextFunction
         coordinates: [pollData.location.longitude, pollData.location.latitude]
       },
       options: pollData.options.map(option => ({ text: option.text, count: 0 })),
-      creator: new mongoose.Types.ObjectId(userId),
+      creator: userId,
       expiresAt: pollData.expiresAt,
       category: pollData.category,
       tags: pollData.tags,
@@ -201,7 +201,7 @@ export const votePoll = async (req: Request, res: Response, next: NextFunction) 
     }
     
     // Check if user has already voted
-    const canVote = await poll.canVote(new mongoose.Types.ObjectId(userId));
+    const canVote = await poll.canVote(userId);
     
     if (!canVote) {
       return res.status(400).json({
@@ -228,13 +228,13 @@ export const votePoll = async (req: Request, res: Response, next: NextFunction) 
     }
     
     poll.votes.push({
-      userId: new mongoose.Types.ObjectId(userId),
+      userId: userId,
       optionIndex
     });
     
     await poll.save();
     // Increment the user's pollsVoted count
-    await User.findByIdAndUpdate(userId, { $inc: { pollsVoted: 1 } });
+    await User.findOneAndUpdate({ firebaseUid: userId }, { $inc: { pollsVoted: 1 } });
     console.log(`[votePoll] Incremented pollsVoted for user ${userId}`);
     
     return res.status(200).json({

@@ -3,6 +3,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AuthUser } from '../types/auth';
 import { initApi } from '../services/api';
 import Constants from 'expo-constants';
+import { loginUser, registerUser, resetPassword as firebaseResetPassword } from '../services/firebaseAuth';
+import { updateProfile } from 'firebase/auth';
 
 interface AuthState {
   user: AuthUser | null;
@@ -42,75 +44,64 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   login: async (email, password) => {
     try {
       set({ isLoading: true, error: null });
-      // Initialize API with the correct base URL
-      const apiInstance = await initApi('http://192.168.29.144:3001');
-      const response = await apiInstance.post('/api/auth/login', { email, password });
-      
-      const { token, user } = response.data;
-      if (token && user) {
-        const authUser: AuthUser = {
-          id: user.id,
-          email: user.email,
-          username: user.username,
-          profile: user.profile,
-          pollsVoted: user.pollsVoted,
-          groupsCount: user.groupsCount
-        };
-        
-        await set({
-          user: authUser,
-          token,
-          error: null,
-          isLoading: false,
-        });
-        await AsyncStorage.setItem('auth_token', token);
-      } else {
-        throw new Error('Invalid response from server');
-      }
+      // Use Firebase Auth
+      const user = await loginUser(email, password);
+      const token = await user.getIdToken();
+      const authUser: AuthUser = {
+        id: user.uid,
+        email: user.email ?? '',
+        username: user.displayName ?? '',
+        profile: {},
+        pollsVoted: 0,
+        groupsCount: 0,
+      };
+      await set({
+        user: authUser,
+        token,
+        error: null,
+        isLoading: false,
+      });
+      await AsyncStorage.setItem('auth_token', token);
     } catch (error: any) {
       console.error('Login error:', error);
-      const errorMessage = error.response?.data?.error || error.message || 'Failed to login';
-      set({ error: errorMessage, isLoading: false });
+      set({ error: error.message || 'Failed to login', isLoading: false });
     }
   },
 
   register: async (email: string, password: string, username: string) => {
     try {
       set({ isLoading: true, error: null });
-      // Initialize API with the correct base URL
-      const apiInstance = await initApi('http://192.168.29.144:3001');
-      const response = await apiInstance.post('/api/auth/register', { email, password, username });
-      
-      const { token, user } = response.data;
-      if (token && user) {
-        const authUser: AuthUser = {
-          id: user.id,
-          email: user.email,
-          username: user.username,
-          profile: user.profile,
-          pollsVoted: user.pollsVoted,
-          groupsCount: user.groupsCount
-        };
-        
-        await set({
-          user: authUser,
-          token,
-          isLoading: false,
-          error: null,
-        });
-        await AsyncStorage.setItem('auth_token', token);
-      } else {
-        throw new Error('Invalid response from server');
+      // Use Firebase Auth
+      const user = await registerUser(email, password);
+      // Optionally, update displayName (username)
+      if (user) {
+        await updateProfile(user, { displayName: username });
       }
+      const token = await user.getIdToken();
+      const authUser: AuthUser = {
+        id: user.uid,
+        email: user.email ?? '',
+        username: username ?? '',
+        profile: {},
+        pollsVoted: 0,
+        groupsCount: 0,
+      };
+      await set({
+        user: authUser,
+        token,
+        isLoading: false,
+        error: null,
+      });
+      await AsyncStorage.setItem('auth_token', token);
     } catch (error: any) {
       console.error('Registration error:', error);
-      const errorMessage = error.response?.data?.error || error.message || 'Failed to register';
       set({
-        error: errorMessage,
+        error: error.message || 'Failed to register',
         isLoading: false,
       });
     }
   },
+
 
   logout: async () => {
     try {
@@ -133,14 +124,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   resetPassword: async (email: string) => {
     try {
       set({ isLoading: true, error: null });
-      // Initialize API with the correct base URL
-      const apiInstance = await initApi('http://192.168.29.144:3001');
-      const response = await apiInstance.post('/api/auth/reset-password', { email });
+      await firebaseResetPassword(email);
       set({ isLoading: false, error: null });
     } catch (error: any) {
       console.error('Password reset error:', error);
-      const errorMessage = error.response?.data?.error || error.message || 'Failed to reset password';
-      set({ error: errorMessage, isLoading: false });
+      set({ error: error.message || 'Failed to reset password', isLoading: false });
     }
   },
 

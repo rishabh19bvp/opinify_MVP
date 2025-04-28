@@ -1,5 +1,5 @@
 import apiClient from './apiClient';
-import firebase from '../services/firebase';
+// import firebase from '../services/firebase'; // Deprecated, not needed with frontend-only Firebase Auth
 import { useLocationStore } from '../store/locationStore';
 
 // Poll types

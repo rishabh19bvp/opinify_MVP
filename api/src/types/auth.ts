@@ -1,11 +1,12 @@
 import { IUser } from './user';
 
 export interface IAuthService {
-  register(userData: Omit<IUser, 'password'> & { password: string }): Promise<{
-    token: string;
-    refreshToken: string;
-    user: Omit<IUser, 'password'>;
-  }>;
+  // register(userData: Omit<IUser, 'password'> & { password: string }): Promise<{
+  //   token: string;
+  //   refreshToken: string;
+  //   user: Omit<IUser, 'password'>;
+  // }>; // [Password registration archived: now handled by Firebase Auth]
+
 
   login(credentials: { email: string; password: string }): Promise<{
     token: string;

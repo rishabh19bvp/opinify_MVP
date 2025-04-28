@@ -5,7 +5,8 @@ import { useForm } from '../hooks/useForm';
 import { Button } from '../components/Button';
 import TextInput from '../components/TextInput';
 import { colors } from '../utils/theme';
-import { signInAnonymouslyForTesting } from '../services/firebase';
+// import { signInAnonymouslyForTesting } from '../services/firebase';
+// NOTE: signInAnonymouslyForTesting is deprecated. Use Firebase Auth directly for test logins if needed.
 import { AuthStackParamList } from '../navigation/AuthNavigator';
 import { ProgressiveDisclosure } from '../components/ProgressiveDisclosure';
 import { ResponsiveFeedback } from '../components/ResponsiveFeedback';
@@ -59,19 +60,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
     }
   };
 
-  const handleTestFirebase = async () => {
-    try {
-      setTestError(null);
-      const result = await signInAnonymouslyForTesting();
-      if (result.success) {
-        Alert.alert('Success', result.message || 'Firebase connection is working!');
-      } else {
-        setTestError(result.error || 'Unknown error');
-      }
-    } catch (error: any) {
-      setTestError(error.message);
-    }
-  };
+
 
   return (
     <KeyboardAvoidingView 

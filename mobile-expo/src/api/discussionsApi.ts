@@ -1,5 +1,5 @@
 import apiClient from './apiClient';
-import firebase from '../services/firebase';
+// import firebase from '../services/firebase'; // Deprecated, not needed with frontend-only Firebase Auth
 import { useLocationStore } from '../store/locationStore';
 
 // Discussion types
@@ -152,31 +152,9 @@ const discussionsApi = {
   },
   
   // Subscribe to real-time messages for a channel
-  subscribeToMessages: (channelId: string, callback: (messages: Message[]) => void) => {
-    // Ensure firebase is properly initialized and has a database property
-    if (!('database' in firebase) || typeof firebase.database !== 'function') {
-      throw new Error('Firebase Realtime Database is not available.');
-    }
-    const messagesRef = (firebase as any).database().ref(`channels/${channelId}/messages`);
-    
-    messagesRef.on('value', (snapshot: any) => {
-      const messages: Message[] = [];
-      // Use a different approach to iterate through the snapshot
-      const snapshotValue = snapshot.val() || {};
-      Object.keys(snapshotValue).forEach(key => {
-        messages.push({
-          id: key,
-          ...snapshotValue[key],
-        });
-      });
-      
-      callback(messages);
-    });
-    
-    // Return unsubscribe function
-    return () => {
-      messagesRef.off();
-    };
+  subscribeToMessages: (_channelId: string, _callback: (messages: Message[]) => void) => {
+    // TODO: Re-implement using Firestore or Realtime Database via Firebase JS SDK in the frontend.
+    throw new Error('subscribeToMessages is not implemented. Use Firestore/Realtime Database with the new frontend Firebase SDK.');
   },
 };
 

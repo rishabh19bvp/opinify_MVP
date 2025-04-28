@@ -31,12 +31,14 @@ const registerSchema = z.object({
     .max(30, 'Username must be at most 30 characters')
     .regex(/^[a-zA-Z0-9_]+$/, 'Username must contain only letters, numbers, and underscores'),
   email: z.string().email('Invalid email address'),
-  password: z.string()
-    .min(8, 'Password must be at least 8 characters')
-    .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
-    .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
-    .regex(/[0-9]/, 'Password must contain at least one number')
-    .regex(/[!@#$%^&*]/, 'Password must contain at least one special character'),
+  // password: z.string()
+  //   .min(8, 'Password must be at least 8 characters')
+  //   .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+  //   .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
+  //   .regex(/[0-9]/, 'Password must contain at least one number')
+  //   .regex(/[!@#$%^&*]/, 'Password must contain at least one special character'),
+  // [Password validation archived: now handled by Firebase Auth]
+
   location: z.object({
     latitude: z.number()
       .min(-90, 'Invalid latitude')
@@ -54,9 +56,11 @@ const registerSchema = z.object({
 });
 
 export interface AuthResponse {
-  token: string;
-  refreshToken: string;
-  user: Omit<IUser, 'password'>;
+  success: boolean;
+  user: Omit<IUser, 'password'> | null;
+  token?: string;
+  error?: string;
+  message?: string;
 }
 
 export class AuthService {
@@ -110,29 +114,41 @@ export class AuthService {
       });
 
       if (existingUser) {
-        throw new AuthenticationError(
-          existingUser.email === validatedData.email
-            ? 'Email already registered'
-            : 'Username already taken'
-        );
+        return {
+          success: false,
+          user: null,
+          error: existingUser.email === validatedData.email ? 'Email already registered' : 'Username already taken',
+          message: existingUser.email === validatedData.email ? 'This email is already registered.' : 'This username is already taken.'
+        };
       }
 
       // Create new user
       const user = await User.create(validatedData);
 
-      // Generate tokens
-      const { token, refreshToken } = this.generateTokens((user as any)._id.toString());
+      // Generate token
+      const { token } = this.generateTokens((user as any)._id.toString());
 
       return {
+        success: true,
+        user: user.toObject() as Omit<IUser, 'password'>,
         token,
-        refreshToken,
-        user: user.toObject() as Omit<IUser, 'password'>
+        message: 'Registration successful.'
       };
     } catch (error) {
       if (error instanceof z.ZodError) {
-        throw new ValidationError(error.errors[0].message);
+        return {
+          success: false,
+          user: null,
+          error: 'Validation error',
+          message: error.errors[0].message
+        };
       }
-      throw error;
+      return {
+        success: false,
+        user: null,
+        error: 'Server error',
+        message: (error as Error).message
+      };
     }
   }
 
@@ -144,28 +160,36 @@ export class AuthService {
       // Find user by email
       const user = await User.findOne({ email: validatedCredentials.email });
       if (!user) {
-        throw new AuthenticationError('Invalid credentials');
+        return {
+          success: false,
+          user: null,
+          error: 'Invalid credentials',
+          message: 'No user found with this email.'
+        };
       }
 
-      // Verify password
-      const isMatch = await user.comparePassword(validatedCredentials.password);
-      if (!isMatch) {
-        throw new AuthenticationError('Invalid credentials');
-      }
-
-      // Generate tokens
-      const { token, refreshToken } = this.generateTokens((user as any)._id.toString());
-
+      // Password login is not supported; only Firebase Auth should be used
       return {
-        token,
-        refreshToken,
-        user: user.toObject() as Omit<IUser, 'password'>
+        success: false,
+        user: null,
+        error: 'Login with password is not supported. Use Firebase Auth.',
+        message: 'Please use Firebase authentication to log in.'
       };
     } catch (error) {
       if (error instanceof z.ZodError) {
-        throw new ValidationError(error.errors[0].message);
+        return {
+          success: false,
+          user: null,
+          error: 'Validation error',
+          message: error.errors[0].message
+        };
       }
-      throw error;
+      return {
+        success: false,
+        user: null,
+        error: 'Server error',
+        message: (error as Error).message
+      };
     }
   }
 
@@ -173,12 +197,7 @@ export class AuthService {
     try {
       const decoded = jwt.verify(token, config.jwt.secret as string) as { userId: string };
       
-      // Add validation for ObjectId
-      if (!mongoose.Types.ObjectId.isValid(decoded.userId)) {
-        throw new AuthenticationError('Invalid user ID format');
-      }
-      
-      const user = await User.findById(decoded.userId);
+      const user = await User.findOne({ firebaseUid: decoded.userId });
       
       if (!user) {
         throw new AuthenticationError('User not found');

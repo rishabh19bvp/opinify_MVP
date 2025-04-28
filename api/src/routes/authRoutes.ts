@@ -7,7 +7,7 @@ const router = express.Router();
 // Public routes
 router.post('/register', register);
 router.post('/login', login);
-router.post('/reset-password', resetPassword);
+// router.post('/reset-password', resetPassword); // [Password reset archived: now handled by Firebase Auth]
 
 // Protected routes
 router.get('/me', authenticate, getMe);
